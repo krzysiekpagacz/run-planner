@@ -38,8 +38,8 @@ export default function RootLayout({
         <ClerkProvider>
           <header className="flex items-center justify-end gap-4 px-6 py-3 border-b border-zinc-200 dark:border-zinc-800">
             <Show when="signed-out">
-              <SignInButton />
-              <SignUpButton />
+              <SignInButton mode="modal" />
+              <SignUpButton mode="modal" />
             </Show>
             <Show when="signed-in">
               <UserButton />
