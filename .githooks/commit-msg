@@ -1,0 +1,14 @@
+#!/bin/sh
+COMMIT_MSG=$(head -1 "$1")
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]+\))?!?: .{1,72}$'
+
+if ! echo "$COMMIT_MSG" | grep -Eq "$PATTERN"; then
+  echo ""
+  echo "ERROR: Commit message does not follow Conventional Commits."
+  echo "  Format:  <type>(<scope>): <subject>"
+  echo "  Types:   feat fix docs style refactor perf test build ci chore revert"
+  echo "  Example: feat(auth): add OAuth2 login flow"
+  echo "  Your message: $COMMIT_MSG"
+  echo ""
+  exit 1
+fi
