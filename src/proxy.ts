@@ -2,18 +2,18 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 
 const isPublic = createRouteMatcher(['/', '/api/webhooks(.*)'])
-const isOnboarding = createRouteMatcher(['/onboarding'])
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId, sessionClaims } = await auth()
+  if (isPublic(req)) return
 
-  if (!userId || isPublic(req) || isOnboarding(req)) return
-
-  const onboarded = (sessionClaims?.publicMetadata as { onboardingComplete?: boolean } | undefined)
-    ?.onboardingComplete
-  if (!onboarded) {
-    return NextResponse.redirect(new URL('/onboarding', req.url))
+  const { userId } = await auth()
+  if (!userId) {
+    return NextResponse.redirect(new URL('/', req.url))
   }
+
+  // Onboarding state is enforced in server layouts/pages that read the
+  // database directly. The JWT session claim can be stale right after a
+  // metadata update, which would cause a redirect loop against the DB.
 })
 
 export const config = {
