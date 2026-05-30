@@ -94,3 +94,4 @@ Scope guidance for this project:
 Read these files before generating code in the areas they cover — they contain binding rules that override general defaults:
 
 - **UI (components, dates, styling):** [`docs/ui.md`](docs/ui.md) — read before writing any UI code
+- **Data fetching (Server Components, `src/data/` helpers, authorization):** [`docs/data-fetching.md`](docs/data-fetching.md) — read before fetching any data or writing a query
