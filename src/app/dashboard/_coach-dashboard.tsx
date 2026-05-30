@@ -3,7 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { MonthlyTrainingTable } from './_monthly-training-table';
-import type { Athlete, WorkoutRow } from '@/db/queries';
+import type { Athlete, WorkoutRow } from '@/data';
 
 export interface CoachAthlete extends Athlete {
   workouts: WorkoutRow[];

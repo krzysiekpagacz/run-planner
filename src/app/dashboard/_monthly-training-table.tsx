@@ -25,7 +25,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { WorkoutRow } from '@/db/queries';
+import type { WorkoutRow } from '@/data';
 
 type WorkoutType = WorkoutRow['workoutType'];
 

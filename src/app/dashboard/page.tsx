@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getAthleteWorkouts, getCoachAthletes, getCurrentUser } from '@/db/queries';
+import { getAthleteWorkoutsForCoach, getMyAthletes, getMyWorkouts, getCurrentUser } from '@/data';
 import { MonthlyTrainingTable } from './_monthly-training-table';
 import { CoachDashboard, type CoachAthlete } from './_coach-dashboard';
 
@@ -9,11 +9,11 @@ export default async function DashboardPage() {
   if (!user) redirect('/');
 
   if (user.role === 'coach') {
-    const athletes = await getCoachAthletes(user.id);
+    const athletes = await getMyAthletes();
     const withWorkouts: CoachAthlete[] = await Promise.all(
       athletes.map(async (athlete) => ({
         ...athlete,
-        workouts: await getAthleteWorkouts(athlete.id),
+        workouts: await getAthleteWorkoutsForCoach(athlete.id),
       })),
     );
 
@@ -24,7 +24,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const workouts = await getAthleteWorkouts(user.id);
+  const workouts = await getMyWorkouts();
 
   return (
     <main className="container mx-auto px-4 py-8">

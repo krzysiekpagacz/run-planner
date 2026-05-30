@@ -1,8 +1,6 @@
 import { auth } from '@clerk/nextjs/server'
 import { redirect } from 'next/navigation'
-import { eq } from 'drizzle-orm'
-import { db } from '@/db'
-import { users } from '@/db/schema'
+import { getCurrentUser } from '@/data'
 import RoleSelector from './_role-selector'
 
 export default async function OnboardingPage() {
@@ -11,13 +9,8 @@ export default async function OnboardingPage() {
 
   // If a role was already chosen, never show the chooser again — the DB row
   // is the source of truth (same check the dashboard layout uses).
-  const [existing] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.clerkId, userId))
-    .limit(1)
-
-  if (existing) redirect('/dashboard')
+  const user = await getCurrentUser()
+  if (user) redirect('/dashboard')
 
   return <RoleSelector />
 }
