@@ -53,6 +53,15 @@ Routing follows the App Router convention: a folder becomes a route segment when
 - **`experimental.dynamicIO` renamed to `cacheComponents`** (top-level config key).
 - **React Compiler is enabled** (`reactCompiler: true` in `next.config.ts`). Do not manually add `useMemo`/`useCallback` for performance — the compiler handles memoization automatically.
 
+## UI Standards
+
+**All UI-related code must follow the rules in [`docs/ui.md`](docs/ui.md).** Key rules:
+
+- Use **shadcn/ui components only** — no custom UI primitives.
+- Format all dates with **`date-fns`** using the `dd.MM.yyyy` format string.
+
+Read `docs/ui.md` before writing any UI code.
+
 ## Tailwind v4
 
 `globals.css` uses `@import "tailwindcss"` (v4 syntax). Theme tokens are declared with `@theme inline { ... }` rather than `tailwind.config.js`. There is no `tailwind.config.js` in this project.
@@ -79,3 +88,9 @@ Scope guidance for this project:
 - `src/app/<segment>/` → scope is `<segment>` (e.g., `auth`, `plans`)
 - Only `package.json`/lock file → `deps`; only config files → `config`
 - Mixed areas → omit scope
+
+## Code Generation Guidelines
+
+Read these files before generating code in the areas they cover — they contain binding rules that override general defaults:
+
+- **UI (components, dates, styling):** [`docs/ui.md`](docs/ui.md) — read before writing any UI code
