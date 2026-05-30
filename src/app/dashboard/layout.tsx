@@ -3,21 +3,23 @@ import { redirect } from 'next/navigation'
 import { eq } from 'drizzle-orm'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import RoleSelector from './_role-selector'
 
-export default async function OnboardingPage() {
+export default async function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const { userId } = await auth()
   if (!userId) redirect('/')
 
-  // If a role was already chosen, never show the chooser again — the DB row
-  // is the source of truth (same check the dashboard layout uses).
+  // The DB is the source of truth for whether a role was ever chosen.
   const [existing] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.clerkId, userId))
     .limit(1)
 
-  if (existing) redirect('/dashboard')
+  if (!existing) redirect('/onboarding')
 
-  return <RoleSelector />
+  return <>{children}</>
 }
