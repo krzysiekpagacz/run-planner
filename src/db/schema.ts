@@ -36,7 +36,7 @@ export const users = pgTable('users', {
   clerkId: text('clerk_id').notNull().unique(),
   email: text('email').notNull().unique(),
   name: text('name'),
-  role: text('role', { enum: ['coach', 'athlete', 'both'] }).notNull().default('athlete'),
+  role: text('role', { enum: ['coach', 'athlete'] }).notNull().default('athlete'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 

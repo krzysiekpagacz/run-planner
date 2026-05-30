@@ -6,7 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**RunPlanner** is a web application that enables running coaches to create structured training plans and share them with athletes. Athletes execute workouts, sync completed activities from Strava, and the app reconciles planned vs. actual data.
+**RunPlanner** is a shared platform where **running coaches** and **athletes** collaborate on structured training plans.
+
+There are exactly two user roles — **Coach** and **Athlete** — chosen once at sign-up and never changed:
+
+| Role | Capabilities |
+|---|---|
+| **Coach** | Create training plans, assign workouts to athletes, review Strava activity results |
+| **Athlete** | Follow plans assigned by a coach, sync completed workouts from Strava |
+
+A user cannot hold both roles simultaneously. Role selection happens on the `/onboarding` page immediately after Clerk account creation and is stored in both the `users` DB table (`role` column) and Clerk `publicMetadata.role`. Athletes execute workouts, sync completed activities from Strava, and the app reconciles planned vs. actual data.
 
 ## Commands
 

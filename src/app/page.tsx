@@ -43,7 +43,7 @@ export default function Home() {
               <div className="h-px flex-1 bg-zinc-700" />
             </div>
 
-            <SignUpButton mode="modal">
+            <SignUpButton mode="modal" forceRedirectUrl="/onboarding">
               <button className="w-full rounded-lg border border-zinc-600 px-6 py-3 text-sm font-semibold text-zinc-100 transition-colors hover:bg-zinc-800 cursor-pointer">
                 Create a free account
               </button>
