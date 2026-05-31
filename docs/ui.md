@@ -36,6 +36,34 @@ Theme tokens live in `src/app/globals.css` under `@theme inline { ... }` (Tailwi
 
 Consistency, maintainability, and accessibility. shadcn/ui components are built on Radix UI primitives and are fully accessible out of the box. Custom components fragment the visual language and must be maintained separately.
 
+## View Controls and Filter Buttons
+
+**Controls that switch between views or filter the content of a table (e.g. "Week View / Month View") must be rendered outside and above the Card that wraps the table — never inside `CardContent`.**
+
+Place them in a sibling element before `<Card>`, not as children of `CardHeader` or `CardContent`. This keeps the card boundary clean and makes the control hierarchy clear to the user.
+
+```tsx
+// Correct
+<div className="flex flex-col gap-4">
+  <div>
+    <Button onClick={toggleView}>Week View</Button>
+  </div>
+  <Card>
+    <CardContent>
+      <Table>…</Table>
+    </CardContent>
+  </Card>
+</div>
+
+// Wrong — control buried inside the card
+<Card>
+  <CardContent>
+    <Button onClick={toggleView}>Week View</Button>
+    <Table>…</Table>
+  </CardContent>
+</Card>
+```
+
 ## Date Formatting
 
 **All dates displayed in the UI must be formatted using the `date-fns` package. No other date formatting approach is permitted.**

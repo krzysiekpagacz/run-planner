@@ -5,9 +5,13 @@ import {
   format,
   startOfMonth,
   endOfMonth,
+  startOfWeek,
+  endOfWeek,
   eachDayOfInterval,
   addMonths,
   subMonths,
+  addWeeks,
+  subWeeks,
   isSameDay,
   isBefore,
   parseISO,
@@ -68,42 +72,78 @@ function isCompleted(scheduledDate: Date): boolean {
   return isBefore(scheduledDate, startOfDay(new Date()));
 }
 
+type ViewMode = 'month' | 'week';
+
+const WEEK_OPTS = { weekStartsOn: 1 } as const;
+
 export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
 
-  const days = eachDayOfInterval({
-    start: startOfMonth(month),
-    end: endOfMonth(month),
-  });
+  const days =
+    viewMode === 'week'
+      ? eachDayOfInterval({
+          start: startOfWeek(month, WEEK_OPTS),
+          end: endOfWeek(month, WEEK_OPTS),
+        })
+      : eachDayOfInterval({
+          start: startOfMonth(month),
+          end: endOfMonth(month),
+        });
+
+  const title =
+    viewMode === 'week'
+      ? `${format(startOfWeek(month, WEEK_OPTS), 'dd.MM.yyyy')} – ${format(endOfWeek(month, WEEK_OPTS), 'dd.MM.yyyy')}`
+      : format(month, 'MMMM yyyy');
+
+  function toggleView() {
+    if (viewMode === 'month') {
+      setViewMode('week');
+      setMonth(startOfWeek(new Date(), WEEK_OPTS));
+    } else {
+      setViewMode('month');
+      setMonth(startOfMonth(new Date()));
+    }
+  }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-2xl">{format(month, 'MMMM yyyy')}</CardTitle>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setMonth((m) => subMonths(m, 1))}
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setMonth((m) => addMonths(m, 1))}
-              aria-label="Next month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+    <div className="flex flex-col gap-4">
+      <div>
+        <Button variant="outline" onClick={toggleView}>
+          {viewMode === 'month' ? 'Week View' : 'Month View'}
+        </Button>
+      </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl">{title}</CardTitle>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() =>
+                  setMonth((m) => (viewMode === 'week' ? subWeeks(m, 1) : subMonths(m, 1)))
+                }
+                aria-label={viewMode === 'week' ? 'Previous week' : 'Previous month'}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() =>
+                  setMonth((m) => (viewMode === 'week' ? addWeeks(m, 1) : addMonths(m, 1)))
+                }
+                aria-label={viewMode === 'week' ? 'Next week' : 'Next month'}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
+        </CardHeader>
+        <CardContent>
+        <Table containerClassName="max-h-[65vh] overflow-y-auto sm:max-h-[70vh] lg:max-h-[75vh]">
+          <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
               <TableHead className="w-28">Date</TableHead>
               <TableHead className="w-12">Day</TableHead>
@@ -177,7 +217,8 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
             })}
           </TableBody>
         </Table>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
