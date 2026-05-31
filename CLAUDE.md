@@ -96,3 +96,4 @@ Read these files before generating code in the areas they cover — they contain
 - **UI (components, dates, styling):** [`docs/ui.md`](docs/ui.md) — read before writing any UI code
 - **Data fetching (Server Components, `src/data/` helpers, authorization):** [`docs/data-fetching.md`](docs/data-fetching.md) — read before fetching any data or writing a query
 - **Authentication & authorization (Clerk, roles, protected routes, onboarding):** [`docs/auth.md`](docs/auth.md) — read before writing any auth, role, or identity code
+- **Data mutation (Server Actions, `src/data/` helpers, Zod validation):** [`docs/data-mutation.md`](docs/data-mutation.md) — read before writing any create, update, or delete operation
