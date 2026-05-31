@@ -9,7 +9,7 @@ allowed-tools: Bash(git status:*), Bash(git add:*), Bash(git commit:*), Bash(git
 - Current branch: !`git branch --show-current`
 - Working tree status: !`git status --short`
 - Default branch: !`git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`
-- Recent commits on this branch vs default: !`git log --oneline origin/$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || echo main)..HEAD 2>/dev/null | head -20`
+- Recent commits (HEAD): !`git log --oneline -20`
 
 ## Your task
 
