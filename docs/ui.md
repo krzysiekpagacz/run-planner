@@ -82,9 +82,21 @@ format(date, 'dd.MM.yyyy') // → "01.01.2026", "26.10.2024", "13.12.2021"
 - Year is always four digits.
 - Separator is a dot (`.`), not `/` or `-`.
 
+## Internationalisation (i18n)
+
+**Every new user-facing component must be authored with both Polish and English strings. Polish is the default language.**
+
+### Rules
+
+- All visible text must be provided in **both Polish (default) and English** at the time the component is written — do not retrofit translations later.
+- Polish (`pl`) is the application default and is shown when no explicit locale preference is set.
+- English (`en`) is the secondary supported locale.
+- No other languages are supported at this time.
+
 ### Checklist before opening a PR
 
 - [ ] Every visual element uses a shadcn/ui component from `@/components/ui/`.
 - [ ] No new hand-rolled component files were added under `src/components/` that introduce new visual primitives.
 - [ ] Any new shadcn component was added via `npx shadcn@latest add`, not copied manually.
 - [ ] All displayed dates are formatted with `date-fns` using the `dd.MM.yyyy` format string.
+- [ ] Every new user-facing string is provided in both Polish (default) and English.
