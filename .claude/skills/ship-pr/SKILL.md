@@ -1,14 +1,13 @@
 ---
 name: ship-pr
 description: "Push current branch, create a PR, review it for correctness and code quality, run linting and type-checks, and merge when all checks pass. Stops and reports findings if any problem is found."
-allowed-tools: Bash(git status:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git branch:*), Bash(git log:*), Bash(git diff:*), Bash(git symbolic-ref:*), Bash(git ls-remote:*), Bash(git remote:*), Bash(git merge:*), Bash(gh pr:*), Bash(gh repo:*), Bash(npm run lint:*), Bash(npx tsc:*)
+allowed-tools: Bash(git status:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git branch:*), Bash(git log:*), Bash(git diff:*), Bash(git symbolic-ref:*), Bash(git ls-remote:*), Bash(git remote:*), Bash(git merge:*), Bash(gh pr:*), Bash(gh repo:*), Bash(npm run lint:*), Bash(npx tsc:*), Bash(sed:*)
 ---
 
 ## Context
 
 - Current branch: !`git branch --show-current`
 - Working tree status: !`git status --short`
-- Default branch: !`git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`
 - Recent commits (HEAD): !`git log --oneline -20`
 
 ## Your task
