@@ -17,6 +17,7 @@ import {
   parseISO,
   startOfDay,
 } from 'date-fns';
+import { pl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -169,7 +170,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                   <TableCell className="font-mono text-sm">
                     {format(day, 'dd.MM.yyyy')}
                   </TableCell>
-                  <TableCell className="text-sm">{format(day, 'EEE')}</TableCell>
+                  <TableCell className="text-sm">{format(day, 'EEE', { locale: pl })}</TableCell>
                   <TableCell>
                     {workout ? (
                       <Badge
