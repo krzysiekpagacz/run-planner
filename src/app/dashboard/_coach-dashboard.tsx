@@ -31,10 +31,9 @@ export function CoachDashboard({ athletes }: { athletes: CoachAthlete[] }) {
           <TabsTrigger
             key={athlete.id}
             value={athlete.id}
-            className="h-auto flex-none flex-col items-start gap-0.5 px-3 py-2 text-left"
+            className="h-auto flex-none flex-col items-start gap-0.5 px-3 py-2 text-left data-active:bg-blue-600 data-active:text-white dark:data-active:bg-blue-600 dark:data-active:text-white"
           >
             <span className="font-medium">{athlete.name ?? 'Nieznany zawodnik'}</span>
-            <span className="text-xs text-muted-foreground">{athlete.email}</span>
           </TabsTrigger>
         ))}
       </TabsList>
