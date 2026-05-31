@@ -34,16 +34,16 @@ import type { WorkoutRow } from '@/data';
 type WorkoutType = WorkoutRow['workoutType'];
 
 const WORKOUT_TYPE_LABELS: Record<WorkoutType, string> = {
-  easy_run: 'Easy Run',
+  easy_run: 'Łatwy bieg',
   tempo_run: 'Tempo',
-  interval_training: 'Intervals',
-  long_run: 'Long Run',
-  race: 'Race',
-  rest: 'Rest',
-  cross_training: 'Cross Training',
-  strength: 'Strength',
+  interval_training: 'Interwały',
+  long_run: 'Długi bieg',
+  race: 'Zawody',
+  rest: 'Odpoczynek',
+  cross_training: 'Trening uzupełniający',
+  strength: 'Siłownia',
   fartlek: 'Fartlek',
-  hill_workout: 'Hills',
+  hill_workout: 'Podbiegi',
 };
 
 const WORKOUT_TYPE_CLASSES: Record<WorkoutType, string> = {
@@ -110,7 +110,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
     <div className="flex flex-col gap-4">
       <div>
         <Button variant="outline" onClick={toggleView}>
-          {viewMode === 'month' ? 'Week View' : 'Month View'}
+          {viewMode === 'month' ? 'Widok tygodniowy' : 'Widok miesięczny'}
         </Button>
       </div>
       <Card>
@@ -124,7 +124,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                 onClick={() =>
                   setMonth((m) => (viewMode === 'week' ? subWeeks(m, 1) : subMonths(m, 1)))
                 }
-                aria-label={viewMode === 'week' ? 'Previous week' : 'Previous month'}
+                aria-label={viewMode === 'week' ? 'Poprzedni tydzień' : 'Poprzedni miesiąc'}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -134,7 +134,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                 onClick={() =>
                   setMonth((m) => (viewMode === 'week' ? addWeeks(m, 1) : addMonths(m, 1)))
                 }
-                aria-label={viewMode === 'week' ? 'Next week' : 'Next month'}
+                aria-label={viewMode === 'week' ? 'Następny tydzień' : 'Następny miesiąc'}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -145,14 +145,14 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
         <Table containerClassName="max-h-[65vh] overflow-y-auto sm:max-h-[70vh] lg:max-h-[75vh]">
           <TableHeader className="sticky top-0 z-10 bg-card">
             <TableRow>
-              <TableHead className="w-28">Date</TableHead>
-              <TableHead className="w-12">Day</TableHead>
-              <TableHead className="w-36">Type</TableHead>
-              <TableHead>Workout</TableHead>
-              <TableHead className="w-24 text-right">Distance</TableHead>
-              <TableHead className="w-24 text-right">Duration</TableHead>
+              <TableHead className="w-28">Data</TableHead>
+              <TableHead className="w-12">Dzień</TableHead>
+              <TableHead className="w-36">Typ</TableHead>
+              <TableHead>Trening</TableHead>
+              <TableHead className="w-24 text-right">Dystans</TableHead>
+              <TableHead className="w-24 text-right">Czas</TableHead>
               <TableHead className="w-28">Status</TableHead>
-              <TableHead>Notes</TableHead>
+              <TableHead>Notatki</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -183,7 +183,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                     )}
                   </TableCell>
                   <TableCell className="font-medium">
-                    {workout?.title ?? <span className="text-xs">Rest</span>}
+                    {workout?.title ?? <span className="text-xs">Odpoczynek</span>}
                   </TableCell>
                   <TableCell className="text-right text-sm">
                     {workout?.totalDistanceMeters != null
@@ -205,7 +205,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                             : 'border-neutral-400 text-neutral-600'
                         }
                       >
-                        {completed ? 'Completed' : 'Planned'}
+                        {completed ? 'Ukończony' : 'Zaplanowany'}
                       </Badge>
                     ) : null}
                   </TableCell>

@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "RunPlanner",
-  description: "Training plans for coaches and athletes",
+  description: "Plany treningowe dla trenerów i zawodników",
 };
 
 export default function RootLayout({
@@ -33,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pl"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
@@ -44,12 +44,12 @@ export default function RootLayout({
               <Show when="signed-out">
                 <SignInButton mode="modal">
                   <button className="text-sm font-medium bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 text-white px-4 py-1.5 rounded-md transition-colors cursor-pointer shadow-sm">
-                    Sign in
+                    Zaloguj się
                   </button>
                 </SignInButton>
                 <SignUpButton mode="modal">
                   <button className="text-sm font-medium bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-4 py-1.5 rounded-md hover:bg-zinc-700 dark:hover:bg-zinc-200 transition-colors cursor-pointer shadow-sm">
-                    Sign up
+                    Zarejestruj się
                   </button>
                 </SignUpButton>
               </Show>

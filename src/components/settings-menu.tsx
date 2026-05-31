@@ -21,28 +21,29 @@ export function SettingsMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="User settings" />}>
+      <DropdownMenuTrigger render={<Button variant="ghost" size="icon" aria-label="Ustawienia użytkownika" />}>
         <Menu />
       </DropdownMenuTrigger>
+
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <SunMoon className="mr-2 size-4" />
-            Appearance
+            Wygląd
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent side="left">
             <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
               <DropdownMenuRadioItem value="light">
                 <Sun className="mr-2 size-4" />
-                Light
+                Jasny
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="dark">
                 <Moon className="mr-2 size-4" />
-                Dark
+                Ciemny
               </DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="system">
                 <Monitor className="mr-2 size-4" />
-                System
+                Systemowy
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
@@ -50,7 +51,7 @@ export function SettingsMenu() {
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <Globe className="mr-2 size-4" />
-            Language
+            Język
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent side="left">
             <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>

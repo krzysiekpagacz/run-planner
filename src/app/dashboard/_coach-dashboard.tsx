@@ -14,8 +14,7 @@ export function CoachDashboard({ athletes }: { athletes: CoachAthlete[] }) {
     return (
       <Card>
         <CardContent className="py-12 text-center text-muted-foreground">
-          You don&apos;t have any athletes yet. Once athletes are linked to you,
-          they&apos;ll appear here.
+          Nie masz jeszcze żadnych zawodników. Gdy zawodnicy zostaną przypisani do Ciebie, pojawią się tutaj.
         </CardContent>
       </Card>
     );
@@ -34,7 +33,7 @@ export function CoachDashboard({ athletes }: { athletes: CoachAthlete[] }) {
             value={athlete.id}
             className="h-auto flex-none flex-col items-start gap-0.5 px-3 py-2 text-left"
           >
-            <span className="font-medium">{athlete.name ?? 'Unnamed athlete'}</span>
+            <span className="font-medium">{athlete.name ?? 'Nieznany zawodnik'}</span>
             <span className="text-xs text-muted-foreground">{athlete.email}</span>
           </TabsTrigger>
         ))}
