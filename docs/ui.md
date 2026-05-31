@@ -82,16 +82,11 @@ format(date, 'dd.MM.yyyy') // → "01.01.2026", "26.10.2024", "13.12.2021"
 - Year is always four digits.
 - Separator is a dot (`.`), not `/` or `-`.
 
-## Internationalisation (i18n)
+## Language
 
-**Every new user-facing component must be authored with both Polish and English strings. Polish is the default language.**
+**The application is Polish-only. All user-facing strings must be written in Polish. There is no i18n system, no translation files, and no language switching.**
 
-### Rules
-
-- All visible text must be provided in **both Polish (default) and English** at the time the component is written — do not retrofit translations later.
-- Polish (`pl`) is the application default and is shown when no explicit locale preference is set.
-- English (`en`) is the secondary supported locale.
-- No other languages are supported at this time.
+Do not add multi-language support or wrap strings in translation helpers.
 
 ### Checklist before opening a PR
 
@@ -99,4 +94,4 @@ format(date, 'dd.MM.yyyy') // → "01.01.2026", "26.10.2024", "13.12.2021"
 - [ ] No new hand-rolled component files were added under `src/components/` that introduce new visual primitives.
 - [ ] Any new shadcn component was added via `npx shadcn@latest add`, not copied manually.
 - [ ] All displayed dates are formatted with `date-fns` using the `dd.MM.yyyy` format string.
-- [ ] Every new user-facing string is provided in both Polish (default) and English.
+- [ ] All user-facing strings are written in Polish.

@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { useTheme } from 'next-themes';
-import { Menu, Sun, Moon, Monitor, SunMoon, Globe } from 'lucide-react';
+import { Menu, Sun, Moon, Monitor, SunMoon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,7 +16,6 @@ import {
 
 export function SettingsMenu() {
   const { theme, setTheme } = useTheme();
-  const [language, setLanguage] = useState('pl');
 
   return (
     <DropdownMenu>
@@ -45,18 +43,6 @@ export function SettingsMenu() {
                 <Monitor className="mr-2 size-4" />
                 Systemowy
               </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <Globe className="mr-2 size-4" />
-            Język
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent side="left">
-            <DropdownMenuRadioGroup value={language} onValueChange={setLanguage}>
-              <DropdownMenuRadioItem value="pl">Polski</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
