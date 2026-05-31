@@ -46,6 +46,7 @@ export const coachAthleteRelationships = pgTable('coach_athlete_relationships', 
   coachId: uuid('coach_id').notNull().references(() => users.id),
   athleteId: uuid('athlete_id').notNull().references(() => users.id),
   status: relationshipStatusEnum('status').notNull().default('pending'),
+  customName: text('custom_name'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
