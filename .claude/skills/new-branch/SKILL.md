@@ -30,8 +30,8 @@ Run `git branch --show-current`. If the output is empty, stop: "You are in detac
 Run: `git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||'`
 Store the result as DEFAULT_BRANCH. If the command returns no output, fall back to `main`.
 
-**0d. Guard against committing to the default branch.**
-If the current branch (from 0b) equals DEFAULT_BRANCH, stop: "You are on `<DEFAULT_BRANCH>`. Switch to a feature branch before running /new-branch, so your changes are not committed directly to `<DEFAULT_BRANCH>`."
+**0d. Detect if on the default branch.**
+If the current branch (from 0b) equals DEFAULT_BRANCH, set ON_DEFAULT_BRANCH=true. Do NOT stop — this is a valid starting point when the intent is to branch off from the default branch directly.
 
 **0e. Warn about pre-staged changes.**
 If `git diff --cached --name-only` returns any files, tell the user: "These files are already staged and will be included in the commit: <list them>. Proceed, or run `git reset HEAD` to unstage first." Wait for confirmation before continuing.
@@ -42,6 +42,8 @@ Run `git branch --list "$ARGUMENTS"` and `git ls-remote --heads origin "$ARGUMEN
 ---
 
 ### Step 1: Handle uncommitted changes
+
+**If ON_DEFAULT_BRANCH is true**: skip this entire step. Uncommitted and untracked changes will carry over automatically when the new branch is created in Step 3.
 
 Run `git status --porcelain`. If clean, skip to Step 2.
 
@@ -73,8 +75,10 @@ Run: `git fetch origin <DEFAULT_BRANCH>`
 
 ### Step 3: Create and checkout the new branch
 
-Run: `git checkout -b "$ARGUMENTS" origin/<DEFAULT_BRANCH>`
-(The argument is quoted to handle names that contain spaces or special characters.)
+- **If ON_DEFAULT_BRANCH is true**: run `git checkout -b "$ARGUMENTS"` — this carries any uncommitted/untracked changes to the new branch.
+- **Otherwise**: run `git checkout -b "$ARGUMENTS" origin/<DEFAULT_BRANCH>` — branches from the freshly-fetched remote tip.
+
+(The argument is always quoted to handle names with spaces or special characters.)
 
 ---
 
