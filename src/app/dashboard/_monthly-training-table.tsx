@@ -92,6 +92,44 @@ function formatDuration(minutes: number): string {
   return `${minutes} min`;
 }
 
+/**
+ * Estimated duration of a single segment, in minutes, or null when it can't be
+ * derived. Prefers an explicit duration; otherwise computes from distance and
+ * the average of the planned pace range. Multiplied by the repetition count.
+ */
+function segmentEstimatedMinutes(seg: SegmentRow): number | null {
+  if (seg.durationMinutes != null) {
+    return seg.durationMinutes * seg.repetitions;
+  }
+  if (
+    seg.distanceMeters != null &&
+    seg.paceMinSecondsPerKm != null &&
+    seg.paceMaxSecondsPerKm != null
+  ) {
+    const avgPace = (seg.paceMinSecondsPerKm + seg.paceMaxSecondsPerKm) / 2; // sec/km
+    const seconds = (seg.distanceMeters / 1000) * avgPace * seg.repetitions;
+    return seconds / 60;
+  }
+  return null;
+}
+
+/**
+ * Approximate total duration of a workout, summed from its segments. Returns
+ * null when no segment yields an estimate.
+ */
+function estimateWorkoutMinutes(workout: WorkoutRow): number | null {
+  let total = 0;
+  let any = false;
+  for (const seg of workout.segments) {
+    const m = segmentEstimatedMinutes(seg);
+    if (m != null) {
+      total += m;
+      any = true;
+    }
+  }
+  return any ? Math.round(total) : null;
+}
+
 function fmtPace(s: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
@@ -382,7 +420,6 @@ export function MonthlyTrainingTable({
                 <TableHead className="w-28">Data</TableHead>
                 <TableHead className="w-12">Dzień</TableHead>
                 <TableHead className="w-36">Typ</TableHead>
-                <TableHead>Trening</TableHead>
                 <TableHead className="w-24 text-right">Dystans</TableHead>
                 <TableHead className="w-24 text-right">Czas</TableHead>
                 <TableHead className="w-28">Status</TableHead>
@@ -401,7 +438,7 @@ export function MonthlyTrainingTable({
                 return (
                   <TableRow
                     key={day.toISOString()}
-                    className={`group ${workout ? '' : 'text-muted-foreground'}`}
+                    className={`group hover:bg-blue-50 dark:hover:bg-blue-950/40 ${workout ? '' : 'text-muted-foreground'}`}
                   >
                     {athleteId && (
                       <TableCell className="py-1">
@@ -459,18 +496,29 @@ export function MonthlyTrainingTable({
                         <span className="text-xs">—</span>
                       )}
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {workout?.title ?? <span className="text-xs">Odpoczynek</span>}
-                    </TableCell>
                     <TableCell className="text-right text-sm">
                       {workout?.totalDistanceMeters != null
                         ? formatDistance(workout.totalDistanceMeters)
                         : '—'}
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                      {workout?.totalDurationMinutes != null
-                        ? formatDuration(workout.totalDurationMinutes)
-                        : '—'}
+                      {(() => {
+                        if (!workout) return '—';
+                        if (workout.totalDurationMinutes != null) {
+                          return formatDuration(workout.totalDurationMinutes);
+                        }
+                        const est = estimateWorkoutMinutes(workout);
+                        return est != null ? (
+                          <span
+                            className="text-muted-foreground"
+                            title="Szacowany czas na podstawie planu"
+                          >
+                            ~{formatDuration(est)}
+                          </span>
+                        ) : (
+                          '—'
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>
                       {workout ? (
