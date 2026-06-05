@@ -131,9 +131,13 @@ type TableAction =
   | { type: 'delete'; workout: WorkoutRow }
   | null;
 
-type EditingNote =
-  | { type: 'workout'; workoutId: string; current: string }
-  | { type: 'segment'; segmentId: string; label: string; current: string };
+interface EditingNoteDialog {
+  workoutId: string;
+  /** All sections that currently have a note, for the dropdown. */
+  targets: Array<{ id: string; label: string; notes: string }>;
+  /** Currently selected target id ('workout' or segment id). */
+  selectedTarget: string;
+}
 
 type DeletingNote =
   | { type: 'workout'; workoutId: string }
@@ -159,8 +163,8 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
-  const [noteDraft, setNoteDraft] = useState('');
+  const [editingNoteDialog, setEditingNoteDialog] = useState<EditingNoteDialog | null>(null);
+  const [noteEditDraft, setNoteEditDraft] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [deletingNote, setDeletingNote] = useState<DeletingNote | null>(null);
   const [isDeletingNote, setIsDeletingNote] = useState(false);
@@ -184,22 +188,48 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
       ? `${format(startOfWeek(month, WEEK_OPTS), 'dd.MM.yyyy')} – ${format(endOfWeek(month, WEEK_OPTS), 'dd.MM.yyyy')}`
       : format(month, 'MMMM yyyy');
 
-  function openNoteEdit(note: EditingNote) {
-    setNoteDraft(note.current);
-    setEditingNote(note);
+  function openNoteEdit(workout: WorkoutRow, initialTargetId: string) {
+    const targets: EditingNoteDialog['targets'] = [];
+    if (workout.notes) {
+      targets.push({ id: 'workout', label: 'Trening (ogólne)', notes: workout.notes });
+    }
+    workout.segments.forEach((s, idx) => {
+      if (s.notes) {
+        targets.push({
+          id: s.id,
+          label: `${idx + 1}. ${SEGMENT_TYPE_LABELS[s.segmentType]}`,
+          notes: s.notes,
+        });
+      }
+    });
+    const initial = targets.find((t) => t.id === initialTargetId) ?? targets[0];
+    setNoteEditDraft(initial?.notes ?? '');
+    setEditingNoteDialog({
+      workoutId: workout.id,
+      targets,
+      selectedTarget: initial?.id ?? initialTargetId,
+    });
+  }
+
+  function handleEditTargetChange(targetId: string) {
+    if (!editingNoteDialog) return;
+    const target = editingNoteDialog.targets.find((t) => t.id === targetId);
+    setNoteEditDraft(target?.notes ?? '');
+    setEditingNoteDialog((prev) => prev ? { ...prev, selectedTarget: targetId } : null);
   }
 
   async function handleSaveNote() {
-    if (!editingNote) return;
+    if (!editingNoteDialog) return;
     setIsSavingNote(true);
-    const notes = noteDraft.trim() || null;
+    const { selectedTarget, workoutId } = editingNoteDialog;
+    const notes = noteEditDraft.trim() || null;
     const result =
-      editingNote.type === 'workout'
-        ? await updateWorkoutNotesAction({ workoutId: editingNote.workoutId, notes })
-        : await updateSegmentNotesAction({ segmentId: editingNote.segmentId, notes });
+      selectedTarget === 'workout'
+        ? await updateWorkoutNotesAction({ workoutId, notes })
+        : await updateSegmentNotesAction({ segmentId: selectedTarget, notes });
     setIsSavingNote(false);
     if ('success' in result) {
-      setEditingNote(null);
+      setEditingNoteDialog(null);
       router.refresh();
     }
   }
@@ -436,8 +466,11 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                           const segNotes = workout.segments.filter((s) => s.notes);
                           const hasAny = workout.notes || segNotes.length > 0;
                           if (!hasAny && !athleteId) return null;
+                          const hasAddableTargets =
+                            !workout.notes || workout.segments.some((s) => !s.notes);
+
                           const noteButtons = (
-                            editEntry: EditingNote,
+                            targetId: string,
                             deleteEntry: DeletingNote,
                           ) => athleteId ? (
                             <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -446,7 +479,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                 size="icon-xs"
                                 title="Edytuj notatkę"
                                 className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                                onClick={() => openNoteEdit(editEntry)}
+                                onClick={() => openNoteEdit(workout, targetId)}
                               >
                                 <Pencil />
                               </Button>
@@ -464,14 +497,17 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
 
                           return (
                             <div className="flex flex-col gap-1">
-                              {athleteId && !workout.notes && (
+                              {athleteId && hasAddableTargets && (
                                 <Button
                                   variant="ghost"
                                   size="icon-xs"
                                   title="Dodaj notatkę"
                                   className="self-start opacity-0 transition-opacity duration-150 group-hover:opacity-100 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
                                   onClick={() => {
-                                    setAddNoteTarget('workout');
+                                    const firstTarget = !workout.notes
+                                      ? 'workout'
+                                      : (workout.segments.find((s) => !s.notes)?.id ?? 'workout');
+                                    setAddNoteTarget(firstTarget);
                                     setAddNoteText('');
                                     setAddingNote({
                                       workoutId: workout.id,
@@ -494,10 +530,9 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                     {workout.notes}
                                   </p>
                                   {noteButtons(
-                                    { type: 'workout', workoutId: workout.id, current: workout.notes },
+                                    'workout',
                                     { type: 'workout', workoutId: workout.id },
                                   )}
-
                                 </div>
                               )}
                               {segNotes.map((seg) => (
@@ -511,7 +546,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                     </span>
                                   </div>
                                   {noteButtons(
-                                    { type: 'segment', segmentId: seg.id, label: SEGMENT_TYPE_LABELS[seg.segmentType], current: seg.notes! },
+                                    seg.id,
                                     { type: 'segment', segmentId: seg.id, label: SEGMENT_TYPE_LABELS[seg.segmentType] },
                                   )}
                                 </div>
@@ -653,26 +688,53 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit note dialog */}
-      <Dialog open={editingNote !== null} onOpenChange={(open) => !open && setEditingNote(null)}>
+      {/* Edit note dialog — dropdown lets you switch between sections */}
+      <Dialog
+        open={editingNoteDialog !== null}
+        onOpenChange={(open) => !open && setEditingNoteDialog(null)}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>
-              {editingNote?.type === 'segment'
-                ? `Notatki — ${editingNote.label}`
-                : 'Notatki ogólne'}
-            </DialogTitle>
+            <DialogTitle>Edytuj notatkę</DialogTitle>
           </DialogHeader>
-          <Textarea
-            value={noteDraft}
-            onChange={(e) => setNoteDraft(e.target.value)}
-            placeholder="Wpisz notatki…"
-            className="min-h-24"
-          />
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Odcinek</Label>
+              <Select
+                value={editingNoteDialog?.selectedTarget ?? ''}
+                onValueChange={(val) => val && handleEditTargetChange(val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(val: string) => {
+                      const t = editingNoteDialog?.targets.find((x) => x.id === val);
+                      return t?.label ?? val;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {editingNoteDialog?.targets.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Notatka</Label>
+              <Textarea
+                value={noteEditDraft}
+                onChange={(e) => setNoteEditDraft(e.target.value)}
+                placeholder="Wpisz notatki…"
+                className="min-h-24"
+              />
+            </div>
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setEditingNote(null)}
+              onClick={() => setEditingNoteDialog(null)}
               disabled={isSavingNote}
             >
               Anuluj
