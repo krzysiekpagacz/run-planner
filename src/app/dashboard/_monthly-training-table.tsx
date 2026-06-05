@@ -403,7 +403,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                         (() => {
                           const segNotes = workout.segments.filter((s) => s.notes);
                           const hasAny = workout.notes || segNotes.length > 0;
-                          if (!hasAny) return null;
+                          if (!hasAny && !athleteId) return null;
                           const noteButtons = (
                             editEntry: EditingNote,
                             deleteEntry: DeletingNote,
@@ -432,6 +432,17 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
 
                           return (
                             <div className="flex flex-col gap-1">
+                              {athleteId && !workout.notes && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon-xs"
+                                  title="Dodaj notatki"
+                                  className="self-start opacity-0 transition-opacity duration-150 group-hover:opacity-100 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                  onClick={() => openNoteEdit({ type: 'workout', workoutId: workout.id, current: '' })}
+                                >
+                                  <PlusCircle />
+                                </Button>
+                              )}
                               {workout.notes && (
                                 <div className="group flex items-start gap-1">
                                   <p className="flex-1 text-xs text-foreground">
