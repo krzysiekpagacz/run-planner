@@ -46,19 +46,21 @@ interface Props {
 }
 
 export function SectionForm({ prefill, segmentCount, workoutType, onSave, onCancel }: Props) {
-  // interval_training uses meters; all other types use km
-  const useMeters = workoutType === 'interval_training';
-
   const [segmentType, setSegmentType] = useState<SegmentType>(
     prefill?.segmentType ?? 'warmup',
   );
+
+  // meters only for the main set of an interval workout; all other segments use km
+  const useMeters = workoutType === 'interval_training' && segmentType === 'main_set';
   const [measurement, setMeasurement] = useState<'distance' | 'time'>(
     prefill?.measurement ?? 'distance',
   );
   // distanceInput holds the value in the current unit (m or km) — converted on save
   const [distanceInput, setDistanceInput] = useState(() => {
     if (!prefill?.distanceMeters) return '';
-    return useMeters
+    const initUseMeters =
+      workoutType === 'interval_training' && (prefill.segmentType ?? 'warmup') === 'main_set';
+    return initUseMeters
       ? String(prefill.distanceMeters)
       : String(prefill.distanceMeters / 1000);
   });
@@ -75,6 +77,12 @@ export function SectionForm({ prefill, segmentCount, workoutType, onSave, onCanc
   const [repetitions, setRepetitions] = useState(String(prefill?.repetitions ?? '1'));
   const [notes, setNotes] = useState(prefill?.notes ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  function handleSegmentTypeChange(newType: SegmentType) {
+    const newUseMeters = workoutType === 'interval_training' && newType === 'main_set';
+    if (newUseMeters !== useMeters) setDistanceInput('');
+    setSegmentType(newType);
+  }
 
   function handleSave() {
     const errs: Record<string, string> = {};
@@ -155,7 +163,7 @@ export function SectionForm({ prefill, segmentCount, workoutType, onSave, onCanc
           <Label>Typ odcinka</Label>
           <Select
             value={segmentType}
-            onValueChange={(val) => val && setSegmentType(val as SegmentType)}
+            onValueChange={(val) => val && handleSegmentTypeChange(val as SegmentType)}
           >
             <SelectTrigger className="w-full">
               <SelectValue>

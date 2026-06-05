@@ -41,7 +41,7 @@ export const SEGMENT_TYPE_LABELS: Record<SegmentType, string> = {
   main_set: 'Część główna',
   cooldown: 'Wyciszenie',
   recovery: 'Regeneracja',
-  build: 'Nabieganie',
+  build: 'Schłodzenie',
 };
 
 export interface TrainingDetailsDraft {
