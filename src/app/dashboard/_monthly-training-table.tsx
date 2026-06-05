@@ -30,7 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import type { WorkoutRow } from '@/data';
+import type { WorkoutRow, SegmentRow } from '@/data';
+import { SEGMENT_TYPE_LABELS } from './_wizard-types';
 
 type WorkoutType = WorkoutRow['workoutType'];
 
@@ -66,6 +67,32 @@ function formatDistance(meters: number): string {
 
 function formatDuration(minutes: number): string {
   return `${minutes} min`;
+}
+
+function fmtPace(s: number): string {
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function segmentMetric(seg: SegmentRow): string {
+  const parts: string[] = [];
+
+  if (seg.distanceMeters != null) {
+    const dist =
+      seg.distanceMeters >= 1000
+        ? `${(seg.distanceMeters / 1000).toFixed(seg.distanceMeters % 1000 === 0 ? 0 : 1)} km`
+        : `${seg.distanceMeters} m`;
+    parts.push(seg.repetitions > 1 ? `${seg.repetitions}× ${dist}` : dist);
+  } else if (seg.durationMinutes != null) {
+    parts.push(`${seg.durationMinutes} min`);
+  }
+
+  if (seg.heartRateMin != null && seg.heartRateMax != null) {
+    parts.push(`${seg.heartRateMin}–${seg.heartRateMax} bpm`);
+  } else if (seg.paceMinSecondsPerKm != null && seg.paceMaxSecondsPerKm != null) {
+    parts.push(`${fmtPace(seg.paceMinSecondsPerKm)}–${fmtPace(seg.paceMaxSecondsPerKm)} /km`);
+  }
+
+  return parts.join(' · ');
 }
 
 // No status column exists on `workouts`; derive a display status from the date.
@@ -153,7 +180,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
               <TableHead className="w-24 text-right">Dystans</TableHead>
               <TableHead className="w-24 text-right">Czas</TableHead>
               <TableHead className="w-28">Status</TableHead>
-              <TableHead>Notatki</TableHead>
+              <TableHead>Plan</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -210,8 +237,34 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                       </Badge>
                     ) : null}
                   </TableCell>
-                  <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
-                    {workout?.notes ?? ''}
+                  <TableCell className="max-w-sm py-2">
+                    {workout && (workout.segments.length > 0 || workout.notes) ? (
+                      <div className="flex flex-col gap-0.5">
+                        {workout.segments.map((seg, i) => (
+                          <div key={seg.id} className="flex items-baseline gap-1 text-xs leading-snug">
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {i + 1}.
+                            </span>
+                            <span>
+                              <span className="font-semibold text-foreground">
+                                {SEGMENT_TYPE_LABELS[seg.segmentType]}
+                              </span>
+                              {segmentMetric(seg) && (
+                                <span className="text-muted-foreground">
+                                  {' · '}
+                                  {segmentMetric(seg)}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                        {workout.notes && (
+                          <p className="mt-0.5 text-xs italic text-muted-foreground">
+                            {workout.notes}
+                          </p>
+                        )}
+                      </div>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );
