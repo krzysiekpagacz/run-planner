@@ -278,11 +278,11 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                 return (
                   <TableRow
                     key={day.toISOString()}
-                    className={workout ? '' : 'text-muted-foreground'}
+                    className={`group ${workout ? '' : 'text-muted-foreground'}`}
                   >
                     {athleteId && (
                       <TableCell className="py-1">
-                        <div className="flex items-center gap-0.5">
+                        <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                           {!workout ? (
                             <Button
                               variant="ghost"
