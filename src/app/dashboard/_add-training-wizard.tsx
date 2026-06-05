@@ -75,6 +75,8 @@ export function AddTrainingWizard({
     editWorkout ? editWorkout.segments.map(segmentRowToDraft) : [],
   );
   const [prefillSegment, setPrefillSegment] = useState<SegmentDraft | null>(null);
+  // In edit mode, tracks which segment index we're walking through (null = adding new)
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -83,6 +85,7 @@ export function AddTrainingWizard({
     setDetails(null);
     setSegments([]);
     setPrefillSegment(null);
+    setEditingIndex(null);
     setSaveError(null);
     setInternalOpen(true);
   }
@@ -97,29 +100,75 @@ export function AddTrainingWizard({
 
   function handleDetailsNext(d: TrainingDetailsDraft) {
     setDetails(d);
-    setPrefillSegment(null);
+    if (editWorkout && segments.length > 0) {
+      // Edit-through mode: walk existing segments one by one pre-filled
+      setEditingIndex(0);
+      setPrefillSegment(segments[0]);
+    } else {
+      setEditingIndex(null);
+      setPrefillSegment(null);
+    }
     setStep('section');
   }
 
   function handleSegmentSave(seg: SegmentDraft) {
-    setSegments((prev) => [...prev, seg]);
-    setPrefillSegment(null);
-    setStep('summary');
+    if (editingIndex !== null) {
+      // Edit-through: replace the segment in place
+      const total = segments.length;
+      setSegments((prev) => {
+        const updated = [...prev];
+        updated[editingIndex] = seg;
+        return updated;
+      });
+      const nextIndex = editingIndex + 1;
+      if (nextIndex < total) {
+        setEditingIndex(nextIndex);
+        setPrefillSegment(segments[nextIndex]);
+        // stay at 'section'
+      } else {
+        setEditingIndex(null);
+        setPrefillSegment(null);
+        setStep('summary');
+      }
+    } else {
+      // Normal add: append
+      setSegments((prev) => [...prev, seg]);
+      setPrefillSegment(null);
+      setStep('summary');
+    }
   }
 
   function handleGoBack() {
     const last = segments[segments.length - 1];
     setSegments((prev) => prev.slice(0, -1));
     setPrefillSegment(last);
+    setEditingIndex(null);
     setStep('section');
   }
 
   function handleAddAnother() {
     setPrefillSegment(null);
+    setEditingIndex(null);
     setStep('section');
   }
 
   function handleSectionCancel() {
+    if (editingIndex !== null) {
+      // Edit-through: navigate backward
+      if (editingIndex > 0) {
+        const prevIndex = editingIndex - 1;
+        setEditingIndex(prevIndex);
+        setPrefillSegment(segments[prevIndex]);
+        // stay at 'section'
+      } else {
+        // First segment → back to training details
+        setEditingIndex(null);
+        setPrefillSegment(null);
+        setStep('details');
+      }
+      return;
+    }
+    // Normal cancel behavior
     if (prefillSegment !== null) {
       setSegments((prev) => [...prev, prefillSegment]);
       setPrefillSegment(null);
@@ -201,7 +250,8 @@ export function AddTrainingWizard({
           {step === 'section' && details && (
             <SectionForm
               prefill={prefillSegment}
-              segmentCount={segments.length}
+              segmentCount={editingIndex ?? segments.length}
+              totalSegments={editingIndex !== null ? segments.length : undefined}
               workoutType={details.workoutType}
               onSave={handleSegmentSave}
               onCancel={handleSectionCancel}

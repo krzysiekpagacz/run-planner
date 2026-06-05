@@ -40,12 +40,14 @@ function parsePace(pace: string): number | undefined {
 interface Props {
   prefill: SegmentDraft | null;
   segmentCount: number;
+  /** When provided, the title shows "X / totalSegments" indicating progress. */
+  totalSegments?: number;
   workoutType: WorkoutType;
   onSave: (segment: SegmentDraft) => void;
   onCancel: () => void;
 }
 
-export function SectionForm({ prefill, segmentCount, workoutType, onSave, onCancel }: Props) {
+export function SectionForm({ prefill, segmentCount, totalSegments, workoutType, onSave, onCancel }: Props) {
   const [segmentType, setSegmentType] = useState<SegmentType>(
     prefill?.segmentType ?? 'warmup',
   );
@@ -156,7 +158,10 @@ export function SectionForm({ prefill, segmentCount, workoutType, onSave, onCanc
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Odcinek {segmentCount + 1}</DialogTitle>
+        <DialogTitle>
+          Odcinek {segmentCount + 1}
+          {totalSegments != null && ` / ${totalSegments}`}
+        </DialogTitle>
       </DialogHeader>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
