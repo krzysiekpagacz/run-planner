@@ -38,6 +38,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { WorkoutRow, SegmentRow } from '@/data';
 import { SEGMENT_TYPE_LABELS } from './_wizard-types';
@@ -131,6 +139,12 @@ type DeletingNote =
   | { type: 'workout'; workoutId: string }
   | { type: 'segment'; segmentId: string; label: string };
 
+interface AddingNote {
+  workoutId: string;
+  /** Segments that don't yet have notes, offered as targets. */
+  segments: Array<{ id: string; label: string }>;
+}
+
 interface Props {
   workouts: WorkoutRow[];
   /** When provided, coach CRUD action icons are shown for each row. */
@@ -150,6 +164,9 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [deletingNote, setDeletingNote] = useState<DeletingNote | null>(null);
   const [isDeletingNote, setIsDeletingNote] = useState(false);
+  const [addingNote, setAddingNote] = useState<AddingNote | null>(null);
+  const [addNoteTarget, setAddNoteTarget] = useState('workout');
+  const [addNoteText, setAddNoteText] = useState('');
 
   const days =
     viewMode === 'week'
@@ -198,6 +215,21 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
     setIsDeletingNote(false);
     setDeletingNote(null);
     router.refresh();
+  }
+
+  async function handleConfirmAddNote() {
+    if (!addingNote || !addNoteText.trim()) return;
+    setIsSavingNote(true);
+    const notes = addNoteText.trim();
+    const result =
+      addNoteTarget === 'workout'
+        ? await updateWorkoutNotesAction({ workoutId: addingNote.workoutId, notes })
+        : await updateSegmentNotesAction({ segmentId: addNoteTarget, notes });
+    setIsSavingNote(false);
+    if ('success' in result) {
+      setAddingNote(null);
+      router.refresh();
+    }
   }
 
   function toggleView() {
@@ -436,9 +468,22 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                 <Button
                                   variant="ghost"
                                   size="icon-xs"
-                                  title="Dodaj notatki"
+                                  title="Dodaj notatkę"
                                   className="self-start opacity-0 transition-opacity duration-150 group-hover:opacity-100 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                  onClick={() => openNoteEdit({ type: 'workout', workoutId: workout.id, current: '' })}
+                                  onClick={() => {
+                                    setAddNoteTarget('workout');
+                                    setAddNoteText('');
+                                    setAddingNote({
+                                      workoutId: workout.id,
+                                      segments: workout.segments
+                                        .map((s, idx) => ({ s, idx }))
+                                        .filter(({ s }) => !s.notes)
+                                        .map(({ s, idx }) => ({
+                                          id: s.id,
+                                          label: `${idx + 1}. ${SEGMENT_TYPE_LABELS[s.segmentType]}`,
+                                        })),
+                                    });
+                                  }}
                                 >
                                   <PlusCircle />
                                 </Button>
@@ -543,6 +588,66 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
               disabled={isDeletingNote}
             >
               {isDeletingNote ? 'Usuwanie…' : 'Usuń'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add note dialog — with target selector */}
+      <Dialog open={addingNote !== null} onOpenChange={(open) => !open && setAddingNote(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Dodaj notatkę</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Dotyczy</Label>
+              <Select
+                value={addNoteTarget}
+                onValueChange={(val) => val && setAddNoteTarget(val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(val: string) => {
+                      if (val === 'workout') return 'Trening (ogólne)';
+                      const seg = addingNote?.segments.find((s) => s.id === val);
+                      return seg?.label ?? val;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="workout">Trening (ogólne)</SelectItem>
+                  {addingNote?.segments.map((seg) => (
+                    <SelectItem key={seg.id} value={seg.id}>
+                      {seg.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Notatka</Label>
+              <Textarea
+                value={addNoteText}
+                onChange={(e) => setAddNoteText(e.target.value)}
+                placeholder="Wpisz notatkę…"
+                className="min-h-20"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddingNote(null)}
+              disabled={isSavingNote}
+            >
+              Anuluj
+            </Button>
+            <Button
+              onClick={handleConfirmAddNote}
+              disabled={!addNoteText.trim() || isSavingNote}
+            >
+              {isSavingNote ? 'Zapisywanie…' : 'Zapisz'}
             </Button>
           </DialogFooter>
         </DialogContent>
