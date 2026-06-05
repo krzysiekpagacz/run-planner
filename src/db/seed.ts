@@ -1,3 +1,8 @@
+if (process.env.NODE_ENV === 'production') {
+  console.error('Seed scripts must not run in production.');
+  process.exit(1);
+}
+
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 config(); // fallback to .env
