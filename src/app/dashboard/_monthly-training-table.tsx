@@ -181,6 +181,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
               <TableHead className="w-24 text-right">Czas</TableHead>
               <TableHead className="w-28">Status</TableHead>
               <TableHead>Plan</TableHead>
+              <TableHead>Dodatkowe notatki</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -238,7 +239,7 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                     ) : null}
                   </TableCell>
                   <TableCell className="max-w-sm py-2">
-                    {workout && (workout.segments.length > 0 || workout.notes) ? (
+                    {workout && workout.segments.length > 0 ? (
                       <div className="flex flex-col gap-0.5">
                         {workout.segments.map((seg, i) => (
                           <div key={seg.id} className="flex items-baseline gap-1 text-xs leading-snug">
@@ -258,13 +259,32 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
                             </span>
                           </div>
                         ))}
-                        {workout.notes && (
-                          <p className="mt-0.5 text-xs italic text-muted-foreground">
-                            {workout.notes}
-                          </p>
-                        )}
                       </div>
                     ) : null}
+                  </TableCell>
+                  <TableCell className="max-w-xs py-2 align-top">
+                    {workout && (() => {
+                      const segNotes = workout.segments.filter((s) => s.notes);
+                      const hasAny = workout.notes || segNotes.length > 0;
+                      if (!hasAny) return null;
+                      return (
+                        <div className="flex flex-col gap-1">
+                          {workout.notes && (
+                            <p className="text-xs text-foreground">{workout.notes}</p>
+                          )}
+                          {segNotes.map((seg) => (
+                            <div key={seg.id} className="text-xs leading-snug">
+                              <span className="font-medium text-foreground">
+                                {SEGMENT_TYPE_LABELS[seg.segmentType]}:
+                              </span>{' '}
+                              <span className="whitespace-pre-wrap text-muted-foreground">
+                                {seg.notes}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
               );
