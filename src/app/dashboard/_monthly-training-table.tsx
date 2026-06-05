@@ -400,7 +400,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                             editEntry: EditingNote,
                             deleteEntry: { type: 'workout'; workoutId: string } | { type: 'segment'; segmentId: string },
                           ) => athleteId ? (
-                            <div className="flex shrink-0 gap-0.5">
+                            <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                               <Button
                                 variant="ghost"
                                 size="icon-xs"
@@ -425,7 +425,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                           return (
                             <div className="flex flex-col gap-1">
                               {workout.notes && (
-                                <div className="flex items-start gap-1">
+                                <div className="group flex items-start gap-1">
                                   <p className="flex-1 text-xs text-foreground">
                                     {workout.notes}
                                   </p>
@@ -436,7 +436,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                 </div>
                               )}
                               {segNotes.map((seg) => (
-                                <div key={seg.id} className="flex items-start gap-1 text-xs leading-snug">
+                                <div key={seg.id} className="group flex items-start gap-1 text-xs leading-snug">
                                   <div className="flex-1">
                                     <span className="font-medium text-foreground">
                                       {SEGMENT_TYPE_LABELS[seg.segmentType]}:
