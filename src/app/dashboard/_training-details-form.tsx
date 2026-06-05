@@ -66,7 +66,11 @@ export function TrainingDetailsForm({ onNext }: Props) {
             onValueChange={(val) => val && setWorkoutType(val as WorkoutType)}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Wybierz typ treningu" />
+              <SelectValue placeholder="Wybierz typ treningu">
+                {(val: string | null) =>
+                  val ? WORKOUT_TYPE_LABELS[val as WorkoutType] : null
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {WORKOUT_TYPES.map((type) => (

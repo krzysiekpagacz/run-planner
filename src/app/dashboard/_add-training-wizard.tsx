@@ -63,6 +63,21 @@ export function AddTrainingWizard({ athleteId }: Props) {
     setStep('section');
   }
 
+  function handleSectionCancel() {
+    if (prefillSegment !== null) {
+      // We're editing the last segment — restore it unchanged and go to summary
+      setSegments((prev) => [...prev, prefillSegment]);
+      setPrefillSegment(null);
+      setStep('summary');
+    } else if (segments.length > 0) {
+      // Adding a new section to an existing list — discard and go to summary
+      setStep('summary');
+    } else {
+      // First section — go back to training details
+      setStep('details');
+    }
+  }
+
   async function handleSave() {
     if (!details) return;
     setIsSaving(true);
@@ -104,11 +119,13 @@ export function AddTrainingWizard({ athleteId }: Props) {
       <Dialog open={isOpen} onOpenChange={(open) => !open && closeWizard()}>
         <DialogContent className="sm:max-w-md">
           {step === 'details' && <TrainingDetailsForm onNext={handleDetailsNext} />}
-          {step === 'section' && (
+          {step === 'section' && details && (
             <SectionForm
               prefill={prefillSegment}
               segmentCount={segments.length}
+              workoutType={details.workoutType}
               onSave={handleSegmentSave}
+              onCancel={handleSectionCancel}
             />
           )}
           {step === 'summary' && (

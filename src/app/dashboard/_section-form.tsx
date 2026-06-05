@@ -18,6 +18,7 @@ import {
   SEGMENT_TYPE_LABELS,
   type SegmentType,
   type SegmentDraft,
+  type WorkoutType,
 } from './_wizard-types';
 
 function formatPace(secondsPerKm?: number): string {
@@ -39,19 +40,28 @@ function parsePace(pace: string): number | undefined {
 interface Props {
   prefill: SegmentDraft | null;
   segmentCount: number;
+  workoutType: WorkoutType;
   onSave: (segment: SegmentDraft) => void;
+  onCancel: () => void;
 }
 
-export function SectionForm({ prefill, segmentCount, onSave }: Props) {
+export function SectionForm({ prefill, segmentCount, workoutType, onSave, onCancel }: Props) {
+  // interval_training uses meters; all other types use km
+  const useMeters = workoutType === 'interval_training';
+
   const [segmentType, setSegmentType] = useState<SegmentType>(
     prefill?.segmentType ?? 'warmup',
   );
   const [measurement, setMeasurement] = useState<'distance' | 'time'>(
     prefill?.measurement ?? 'distance',
   );
-  const [distanceMeters, setDistanceMeters] = useState(
-    String(prefill?.distanceMeters ?? ''),
-  );
+  // distanceInput holds the value in the current unit (m or km) — converted on save
+  const [distanceInput, setDistanceInput] = useState(() => {
+    if (!prefill?.distanceMeters) return '';
+    return useMeters
+      ? String(prefill.distanceMeters)
+      : String(prefill.distanceMeters / 1000);
+  });
   const [durationMinutes, setDurationMinutes] = useState(
     String(prefill?.durationMinutes ?? ''),
   );
@@ -76,11 +86,11 @@ export function SectionForm({ prefill, segmentCount, onSave }: Props) {
     let paceMaxSec: number | undefined;
 
     if (measurement === 'distance') {
-      const val = parseInt(distanceMeters, 10);
-      if (!distanceMeters || isNaN(val) || val < 1) {
-        errs.distanceMeters = 'Podaj dystans w metrach.';
+      const raw = parseFloat(distanceInput);
+      if (!distanceInput || isNaN(raw) || raw <= 0) {
+        errs.distanceInput = `Podaj dystans w ${useMeters ? 'metrach' : 'km'}.`;
       } else {
-        distMeters = val;
+        distMeters = useMeters ? Math.round(raw) : Math.round(raw * 1000);
       }
     } else {
       const val = parseInt(durationMinutes, 10);
@@ -148,7 +158,9 @@ export function SectionForm({ prefill, segmentCount, onSave }: Props) {
             onValueChange={(val) => val && setSegmentType(val as SegmentType)}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(val: string) => SEGMENT_TYPE_LABELS[val as SegmentType]}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {SEGMENT_TYPES.map((type) => (
@@ -168,7 +180,9 @@ export function SectionForm({ prefill, segmentCount, onSave }: Props) {
               onValueChange={(val) => val && setMeasurement(val as 'distance' | 'time')}
             >
               <SelectTrigger className="w-full">
-                <SelectValue />
+                <SelectValue>
+                  {(val: string) => (val === 'distance' ? 'Dystans' : 'Czas')}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="distance">Dystans</SelectItem>
@@ -179,17 +193,20 @@ export function SectionForm({ prefill, segmentCount, onSave }: Props) {
           <div className="flex flex-1 flex-col gap-1.5">
             {measurement === 'distance' ? (
               <>
-                <Label htmlFor="distanceMeters">Dystans (m)</Label>
+                <Label htmlFor="distanceInput">
+                  {useMeters ? 'Dystans (m)' : 'Dystans (km)'}
+                </Label>
                 <Input
-                  id="distanceMeters"
+                  id="distanceInput"
                   type="number"
-                  min={1}
-                  value={distanceMeters}
-                  onChange={(e) => setDistanceMeters(e.target.value)}
-                  placeholder="1000"
+                  min={useMeters ? 1 : 0.001}
+                  step={useMeters ? 1 : 0.1}
+                  value={distanceInput}
+                  onChange={(e) => setDistanceInput(e.target.value)}
+                  placeholder={useMeters ? '400' : '5'}
                 />
-                {errors.distanceMeters && (
-                  <p className="text-xs text-destructive">{errors.distanceMeters}</p>
+                {errors.distanceInput && (
+                  <p className="text-xs text-destructive">{errors.distanceInput}</p>
                 )}
               </>
             ) : (
@@ -218,7 +235,9 @@ export function SectionForm({ prefill, segmentCount, onSave }: Props) {
             onValueChange={(val) => val && setIntensity(val as 'heart_rate' | 'pace')}
           >
             <SelectTrigger className="w-full">
-              <SelectValue />
+              <SelectValue>
+                {(val: string) => (val === 'heart_rate' ? 'Tętno' : 'Tempo')}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="heart_rate">Tętno</SelectItem>
@@ -312,6 +331,9 @@ export function SectionForm({ prefill, segmentCount, onSave }: Props) {
         </div>
       </div>
       <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>
+          ← Wróć
+        </Button>
         <Button onClick={handleSave}>Zapisz odcinek</Button>
       </DialogFooter>
     </>
