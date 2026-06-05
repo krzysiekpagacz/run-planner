@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { MonthlyTrainingTable } from './_monthly-training-table';
 import { updateAthleteCustomNameAction } from './actions';
+import { AddTrainingWizard } from './_add-training-wizard';
 import type { Athlete, WorkoutRow } from '@/data';
 
 export interface CoachAthlete extends Athlete {
@@ -27,10 +28,18 @@ export interface CoachAthlete extends Athlete {
 }
 
 export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachAthlete[] }) {
-  const [athletes, setAthletes] = useState(initialAthletes);
+  // nameOverrides holds optimistic name edits until the next server refresh
+  const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({});
+  const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthletes[0]?.id ?? '');
   const [editingAthlete, setEditingAthlete] = useState<CoachAthlete | null>(null);
   const [draftName, setDraftName] = useState('');
   const [saved, setSaved] = useState(false);
+
+  // Derive effective athletes list — no state needed, updates automatically on router.refresh()
+  const athletes = initialAthletes.map((a) => ({
+    ...a,
+    customName: nameOverrides[a.id] ?? a.customName,
+  }));
 
   if (athletes.length === 0) {
     return (
@@ -57,9 +66,7 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
     if (!editingAthlete || !draftName.trim()) return;
     const result = await updateAthleteCustomNameAction(editingAthlete.id, draftName.trim());
     if ('success' in result) {
-      setAthletes((prev) =>
-        prev.map((a) => (a.id === editingAthlete.id ? { ...a, customName: draftName.trim() } : a)),
-      );
+      setNameOverrides((prev) => ({ ...prev, [editingAthlete.id]: draftName.trim() }));
       setSaved(true);
       setTimeout(closeDialog, 1500);
     }
@@ -72,7 +79,8 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
     <>
       <Tabs
         orientation="vertical"
-        defaultValue={athletes[0].id}
+        value={selectedAthleteId}
+        onValueChange={setSelectedAthleteId}
         className="flex flex-row items-start gap-6"
       >
         <TabsList className="h-auto w-56 shrink-0 flex-col items-stretch gap-1 bg-muted/50 p-2">
@@ -97,7 +105,10 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
           ))}
         </TabsList>
 
-        <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <div className="flex justify-end">
+            <AddTrainingWizard athleteId={selectedAthleteId} />
+          </div>
           {athletes.map((athlete) => (
             <TabsContent key={athlete.id} value={athlete.id}>
               <MonthlyTrainingTable workouts={athlete.workouts} />
