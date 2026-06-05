@@ -40,14 +40,28 @@ function parsePace(pace: string): number | undefined {
 interface Props {
   prefill: SegmentDraft | null;
   segmentCount: number;
-  /** When provided, the title shows "X / totalSegments" indicating progress. */
+  /** When provided, the title shows "X / totalSegments" and "Dalej →" replaces "Zapisz odcinek". */
   totalSegments?: number;
   workoutType: WorkoutType;
   onSave: (segment: SegmentDraft) => void;
   onCancel: () => void;
+  /** Present in edit mode — validates form, then saves the whole training immediately. */
+  onSaveAndFinish?: (segment: SegmentDraft) => void;
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
-export function SectionForm({ prefill, segmentCount, totalSegments, workoutType, onSave, onCancel }: Props) {
+export function SectionForm({
+  prefill,
+  segmentCount,
+  totalSegments,
+  workoutType,
+  onSave,
+  onCancel,
+  onSaveAndFinish,
+  isSaving = false,
+  saveError,
+}: Props) {
   const [segmentType, setSegmentType] = useState<SegmentType>(
     prefill?.segmentType ?? 'warmup',
   );
@@ -86,7 +100,7 @@ export function SectionForm({ prefill, segmentCount, totalSegments, workoutType,
     setSegmentType(newType);
   }
 
-  function handleSave() {
+  function buildSegment(): SegmentDraft | null {
     const errs: Record<string, string> = {};
     let distMeters: number | undefined;
     let durMinutes: number | undefined;
@@ -138,9 +152,9 @@ export function SectionForm({ prefill, segmentCount, totalSegments, workoutType,
       errs.repetitions = 'Liczba powtórzeń musi być ≥ 1.';
 
     setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
+    if (Object.keys(errs).length > 0) return null;
 
-    onSave({
+    return {
       segmentType,
       measurement,
       intensity,
@@ -152,7 +166,17 @@ export function SectionForm({ prefill, segmentCount, totalSegments, workoutType,
       paceMinSecondsPerKm: paceMinSec,
       paceMaxSecondsPerKm: paceMaxSec,
       notes,
-    });
+    };
+  }
+
+  function handleSave() {
+    const seg = buildSegment();
+    if (seg) onSave(seg);
+  }
+
+  function handleSaveAndFinish() {
+    const seg = buildSegment();
+    if (seg) onSaveAndFinish!(seg);
   }
 
   return (
@@ -343,11 +367,21 @@ export function SectionForm({ prefill, segmentCount, totalSegments, workoutType,
           />
         </div>
       </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>
+      {saveError && <p className="text-sm text-destructive">{saveError}</p>}
+      <DialogFooter className={totalSegments != null ? 'sm:justify-between' : undefined}>
+        <Button variant="outline" onClick={onCancel} disabled={isSaving}>
           ← Wróć
         </Button>
-        <Button onClick={handleSave}>Zapisz odcinek</Button>
+        <div className="flex gap-2">
+          {totalSegments != null && onSaveAndFinish && (
+            <Button variant="outline" onClick={handleSaveAndFinish} disabled={isSaving}>
+              {isSaving ? 'Zapisywanie…' : 'Zapisz zmiany'}
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={isSaving}>
+            {totalSegments != null ? 'Dalej →' : 'Zapisz odcinek'}
+          </Button>
+        </div>
       </DialogFooter>
     </>
   );

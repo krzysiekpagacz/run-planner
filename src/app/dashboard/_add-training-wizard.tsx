@@ -34,15 +34,26 @@ function segmentRowToDraft(seg: SegmentRow): SegmentDraft {
   };
 }
 
+function buildSegmentPayload(segs: SegmentDraft[]) {
+  return segs.map((seg) => ({
+    segmentType: seg.segmentType,
+    repetitions: seg.repetitions,
+    distanceMeters: seg.distanceMeters ?? null,
+    durationMinutes: seg.durationMinutes ?? null,
+    paceMinSecondsPerKm: seg.paceMinSecondsPerKm ?? null,
+    paceMaxSecondsPerKm: seg.paceMaxSecondsPerKm ?? null,
+    heartRateMin: seg.heartRateMin ?? null,
+    heartRateMax: seg.heartRateMax ?? null,
+    notes: seg.notes || null,
+  }));
+}
+
 interface Props {
   athleteId: string;
-  /** Controlled open state. When provided the internal button is hidden. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** Pre-fill the date and lock it (add-from-row). */
   defaultDate?: string;
   dateReadOnly?: boolean;
-  /** Pre-fill the entire form for editing an existing workout. */
   editWorkout?: WorkoutRow;
 }
 
@@ -75,7 +86,6 @@ export function AddTrainingWizard({
     editWorkout ? editWorkout.segments.map(segmentRowToDraft) : [],
   );
   const [prefillSegment, setPrefillSegment] = useState<SegmentDraft | null>(null);
-  // In edit mode, tracks which segment index we're walking through (null = adding new)
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -98,10 +108,50 @@ export function AddTrainingWizard({
     }
   }
 
+  /** Calls the create or update server action and closes on success. */
+  async function saveToServer(d: TrainingDetailsDraft, segs: SegmentDraft[]) {
+    setIsSaving(true);
+    setSaveError(null);
+
+    let result: { success: true } | { error: string };
+
+    if (editWorkout) {
+      const payload: UpdateTrainingPayload = {
+        workoutId: editWorkout.id,
+        athleteId,
+        scheduledDate: d.scheduledDate,
+        workoutType: d.workoutType,
+        title: d.title || undefined,
+        notes: d.notes || undefined,
+        segments: buildSegmentPayload(segs),
+      };
+      result = await updateTrainingAction(payload);
+    } else {
+      const payload: CreateTrainingPayload = {
+        athleteId,
+        scheduledDate: d.scheduledDate,
+        workoutType: d.workoutType,
+        title: d.title || undefined,
+        notes: d.notes || undefined,
+        segments: buildSegmentPayload(segs),
+      };
+      result = await createTrainingAction(payload);
+    }
+
+    setIsSaving(false);
+    if ('success' in result) {
+      closeWizard();
+      router.refresh();
+    } else {
+      setSaveError(result.error);
+    }
+  }
+
+  // ── Step navigation ──────────────────────────────────────────────────────
+
   function handleDetailsNext(d: TrainingDetailsDraft) {
     setDetails(d);
     if (editWorkout && segments.length > 0) {
-      // Edit-through mode: walk existing segments one by one pre-filled
       setEditingIndex(0);
       setPrefillSegment(segments[0]);
     } else {
@@ -113,7 +163,6 @@ export function AddTrainingWizard({
 
   function handleSegmentSave(seg: SegmentDraft) {
     if (editingIndex !== null) {
-      // Edit-through: replace the segment in place
       const total = segments.length;
       setSegments((prev) => {
         const updated = [...prev];
@@ -124,14 +173,12 @@ export function AddTrainingWizard({
       if (nextIndex < total) {
         setEditingIndex(nextIndex);
         setPrefillSegment(segments[nextIndex]);
-        // stay at 'section'
       } else {
         setEditingIndex(null);
         setPrefillSegment(null);
         setStep('summary');
       }
     } else {
-      // Normal add: append
       setSegments((prev) => [...prev, seg]);
       setPrefillSegment(null);
       setStep('summary');
@@ -154,21 +201,17 @@ export function AddTrainingWizard({
 
   function handleSectionCancel() {
     if (editingIndex !== null) {
-      // Edit-through: navigate backward
       if (editingIndex > 0) {
         const prevIndex = editingIndex - 1;
         setEditingIndex(prevIndex);
         setPrefillSegment(segments[prevIndex]);
-        // stay at 'section'
       } else {
-        // First segment → back to training details
         setEditingIndex(null);
         setPrefillSegment(null);
         setStep('details');
       }
       return;
     }
-    // Normal cancel behavior
     if (prefillSegment !== null) {
       setSegments((prev) => [...prev, prefillSegment]);
       setPrefillSegment(null);
@@ -180,57 +223,33 @@ export function AddTrainingWizard({
     }
   }
 
+  // ── "Zapisz zmiany" — save from any step ────────────────────────────────
+
+  async function handleSaveFromDetails(d: TrainingDetailsDraft) {
+    setDetails(d);
+    await saveToServer(d, segments);
+  }
+
+  async function handleSaveFromSection(seg: SegmentDraft) {
+    if (!details) return;
+    const finalSegments = [...segments];
+    if (editingIndex !== null) {
+      finalSegments[editingIndex] = seg;
+    } else {
+      finalSegments.push(seg);
+    }
+    setSegments(finalSegments);
+    await saveToServer(details, finalSegments);
+  }
+
   async function handleSave() {
     if (!details) return;
-    setIsSaving(true);
-    setSaveError(null);
-
-    const segmentPayload = segments.map((seg) => ({
-      segmentType: seg.segmentType,
-      repetitions: seg.repetitions,
-      distanceMeters: seg.distanceMeters ?? null,
-      durationMinutes: seg.durationMinutes ?? null,
-      paceMinSecondsPerKm: seg.paceMinSecondsPerKm ?? null,
-      paceMaxSecondsPerKm: seg.paceMaxSecondsPerKm ?? null,
-      heartRateMin: seg.heartRateMin ?? null,
-      heartRateMax: seg.heartRateMax ?? null,
-      notes: seg.notes || null,
-    }));
-
-    let result: { success: true } | { error: string };
-
-    if (editWorkout) {
-      const payload: UpdateTrainingPayload = {
-        workoutId: editWorkout.id,
-        athleteId,
-        scheduledDate: details.scheduledDate,
-        workoutType: details.workoutType,
-        title: details.title || undefined,
-        notes: details.notes || undefined,
-        segments: segmentPayload,
-      };
-      result = await updateTrainingAction(payload);
-    } else {
-      const payload: CreateTrainingPayload = {
-        athleteId,
-        scheduledDate: details.scheduledDate,
-        workoutType: details.workoutType,
-        title: details.title || undefined,
-        notes: details.notes || undefined,
-        segments: segmentPayload,
-      };
-      result = await createTrainingAction(payload);
-    }
-
-    setIsSaving(false);
-
-    if ('success' in result) {
-      closeWizard();
-      router.refresh();
-    } else {
-      setSaveError(result.error);
-    }
+    await saveToServer(details, segments);
   }
+
+  // ────────────────────────────────────────────────────────────────────────
+
+  const isEditMode = !!editWorkout;
 
   return (
     <>
@@ -245,6 +264,9 @@ export function AddTrainingWizard({
               defaultDate={defaultDate}
               dateReadOnly={dateReadOnly}
               onNext={handleDetailsNext}
+              onSaveAndFinish={isEditMode ? handleSaveFromDetails : undefined}
+              isSaving={isSaving}
+              saveError={saveError}
             />
           )}
           {step === 'section' && details && (
@@ -255,6 +277,9 @@ export function AddTrainingWizard({
               workoutType={details.workoutType}
               onSave={handleSegmentSave}
               onCancel={handleSectionCancel}
+              onSaveAndFinish={isEditMode ? handleSaveFromSection : undefined}
+              isSaving={isSaving}
+              saveError={saveError}
             />
           )}
           {step === 'summary' && (

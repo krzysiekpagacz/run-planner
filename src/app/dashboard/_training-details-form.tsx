@@ -22,16 +22,25 @@ import {
 } from './_wizard-types';
 
 interface Props {
-  /** Pre-fill all fields (edit mode). */
   prefill?: TrainingDetailsDraft;
-  /** Override the initial date value (add-from-row). */
   defaultDate?: string;
-  /** Disable the date field so the coach cannot change it. */
   dateReadOnly?: boolean;
   onNext: (details: TrainingDetailsDraft) => void;
+  /** Present in edit mode — saves immediately and closes the wizard. */
+  onSaveAndFinish?: (details: TrainingDetailsDraft) => void;
+  isSaving?: boolean;
+  saveError?: string | null;
 }
 
-export function TrainingDetailsForm({ prefill, defaultDate, dateReadOnly = false, onNext }: Props) {
+export function TrainingDetailsForm({
+  prefill,
+  defaultDate,
+  dateReadOnly = false,
+  onNext,
+  onSaveAndFinish,
+  isSaving = false,
+  saveError,
+}: Props) {
   const [scheduledDate, setScheduledDate] = useState(
     () => prefill?.scheduledDate ?? defaultDate ?? format(new Date(), 'yyyy-MM-dd'),
   );
@@ -42,13 +51,23 @@ export function TrainingDetailsForm({ prefill, defaultDate, dateReadOnly = false
   const [notes, setNotes] = useState(prefill?.notes ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  function handleNext() {
+  function validate(): TrainingDetailsDraft | null {
     const errs: Record<string, string> = {};
     if (!scheduledDate) errs.scheduledDate = 'Data jest wymagana.';
     if (!workoutType) errs.workoutType = 'Typ treningu jest wymagany.';
     setErrors(errs);
-    if (Object.keys(errs).length > 0) return;
-    onNext({ scheduledDate, workoutType: workoutType!, title, notes });
+    if (Object.keys(errs).length > 0) return null;
+    return { scheduledDate, workoutType: workoutType!, title, notes };
+  }
+
+  function handleNext() {
+    const d = validate();
+    if (d) onNext(d);
+  }
+
+  function handleSaveAndFinish() {
+    const d = validate();
+    if (d) onSaveAndFinish!(d);
   }
 
   return (
@@ -118,9 +137,15 @@ export function TrainingDetailsForm({ prefill, defaultDate, dateReadOnly = false
             placeholder="Dodaj uwagi do całego treningu…"
           />
         </div>
+        {saveError && <p className="text-sm text-destructive">{saveError}</p>}
       </div>
-      <DialogFooter>
-        <Button onClick={handleNext}>Dalej →</Button>
+      <DialogFooter className={onSaveAndFinish ? 'sm:justify-between' : undefined}>
+        {onSaveAndFinish && (
+          <Button variant="outline" onClick={handleSaveAndFinish} disabled={isSaving}>
+            {isSaving ? 'Zapisywanie…' : 'Zapisz zmiany'}
+          </Button>
+        )}
+        <Button onClick={handleNext} disabled={isSaving}>Dalej →</Button>
       </DialogFooter>
     </>
   );
