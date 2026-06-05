@@ -238,3 +238,76 @@ export async function createTrainingWithSegments(
 
   return { id: workout.id };
 }
+
+/** Deletes a workout and all its segments. Coach must own the workout. */
+export async function deleteTraining(workoutId: string): Promise<void> {
+  const coach = await requireCoach();
+
+  const [row] = await db
+    .select({ coachId: workouts.coachId })
+    .from(workouts)
+    .where(eq(workouts.id, workoutId))
+    .limit(1);
+
+  if (!row || row.coachId !== coach.id) throw new Error('Forbidden');
+
+  await db.delete(workoutSegments).where(eq(workoutSegments.workoutId, workoutId));
+  await db.delete(workouts).where(eq(workouts.id, workoutId));
+}
+
+/**
+ * Replaces a workout's editable fields and all its segments.
+ * Coach must own the workout.
+ */
+export async function updateTrainingWithSegments(
+  workoutId: string,
+  input: CreateTrainingInput,
+): Promise<void> {
+  const coach = await requireCoach();
+
+  const [row] = await db
+    .select({ coachId: workouts.coachId })
+    .from(workouts)
+    .where(eq(workouts.id, workoutId))
+    .limit(1);
+
+  if (!row || row.coachId !== coach.id) throw new Error('Forbidden');
+
+  const totalDistanceMeters =
+    input.segments.reduce(
+      (sum, seg) => sum + (seg.distanceMeters ?? 0) * seg.repetitions,
+      0,
+    ) || null;
+
+  await db
+    .update(workouts)
+    .set({
+      scheduledDate: input.scheduledDate,
+      title: input.title,
+      workoutType: input.workoutType,
+      totalDistanceMeters,
+      notes: input.notes ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(workouts.id, workoutId));
+
+  await db.delete(workoutSegments).where(eq(workoutSegments.workoutId, workoutId));
+
+  if (input.segments.length > 0) {
+    await db.insert(workoutSegments).values(
+      input.segments.map((seg, i) => ({
+        workoutId,
+        orderIndex: i,
+        segmentType: seg.segmentType,
+        repetitions: seg.repetitions,
+        distanceMeters: seg.distanceMeters ?? null,
+        durationMinutes: seg.durationMinutes ?? null,
+        paceMinSecondsPerKm: seg.paceMinSecondsPerKm ?? null,
+        paceMaxSecondsPerKm: seg.paceMaxSecondsPerKm ?? null,
+        heartRateMin: seg.heartRateMin ?? null,
+        heartRateMax: seg.heartRateMax ?? null,
+        notes: seg.notes ?? null,
+      })),
+    );
+  }
+}

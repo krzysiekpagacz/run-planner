@@ -1,25 +1,38 @@
 # Add Training Feature
 
-Feature spec for the coach-facing wizard that creates a new training session (workout + segments) from the dashboard.
+Feature spec for the coach-facing wizard and per-row CRUD controls for managing training sessions from the dashboard.
 
 ---
 
-## Entry Point
+## Entry Points
 
-A "Dodaj trening" button sits above `MonthlyTrainingTable` in `_coach-dashboard.tsx`, visible only when an athlete tab is active. The selected athlete is pre-filled and locked for the duration of the wizard.
+### 1. "Dodaj trening" button
+Sits above `MonthlyTrainingTable` in `_coach-dashboard.tsx`. Opens the wizard for the selected athlete with a free-editable date (defaults to today).
+
+### 2. Row action icons (coach view only)
+A narrow actions column at the far left of the table shows small icon buttons for each day row. The icons shown depend on whether a workout exists on that day:
+
+| Row state | Icons |
+|---|---|
+| No workout | 🟢 `PlusCircle` — "Dodaj trening" |
+| Has workout | 🔵 `Pencil` — "Edytuj trening" + 🔴 `Trash2` — "Usuń trening" |
+
+Icons use `size="icon-xs"` (24px) + `variant="ghost"`. Native `title` attribute provides tooltip text.
 
 ---
 
-## Multi-Step Modal Flow
+## Multi-Step Modal Wizard
+
+The same wizard handles both **create** and **edit** flows.
 
 ```
-[Dodaj trening]
+[trigger]
       │
       ▼
 ┌─────────────────────────────────┐
 │  STEP 1: Training Details       │
-│  • Athlete (pre-filled, locked) │
-│  • Date picker (required)       │
+│  • Date picker (required)       │  ← disabled & locked when opened
+│    "Data jest ustalona..."      │    from a specific row
 │  • Workout type (dropdown, req) │
 │  • Title (optional)             │
 │  • Notes (optional)             │
@@ -31,14 +44,16 @@ A "Dodaj trening" button sits above `MonthlyTrainingTable` in `_coach-dashboard.
 │  STEP 2: Section #N             │
 │  • Section type (dropdown)      │
 │  • Measurement: Dystans | Czas  │
-│    └─ if Dystans: meters input  │
-│    └─ if Czas: minutes input    │
+│    └─ Dystans: km (all types)   │
+│       except interval_training  │
+│       main_set → meters (m)     │
+│    └─ Czas: minutes             │
 │  • Intensity: Tętno | Tempo     │
-│    └─ if Tętno: min/max bpm     │
-│    └─ if Tempo: min/max min/km  │
-│  • Repetitions (optional, ≥1)   │
+│    └─ Tętno: min/max bpm        │
+│    └─ Tempo: min/max MM:SS/km   │
+│  • Repetitions (≥1)             │
 │  • Notes (optional)             │
-│  [Zapisz odcinek]               │
+│  [← Wróć]  [Zapisz odcinek]    │
 └──────────────┬──────────────────┘
                │ saved
                ▼
@@ -48,25 +63,38 @@ A "Dodaj trening" button sits above `MonthlyTrainingTable` in `_coach-dashboard.
 │  Running total distance shown   │
 │                                 │
 │  [← Wróć i edytuj]             │
-│  [+ Dodaj kolejny odcinek]      │
+│  [+ Dodaj odcinek]              │
 │  [✓ Zapisz trening]             │
 └──────────────┬──────────────────┘
                │ on "Zapisz trening"
                ▼
-      Save workout + segments to DB
-      → close wizard
+      Create or Update workout + segments
+      → close wizard → router.refresh()
 ```
 
 ---
 
 ## Business Rules
 
-- Date and workout type are required; title is optional. If left blank, display falls back to `{workoutType} · {dd.MM.yyyy}`.
+- Date and workout type are required; title is optional (falls back to `{workoutType} · {dd.MM.yyyy}`).
+- When opened from a row's **+** button, the date is pre-filled with that row's date and **cannot be changed**.
 - At least one section is required before "Zapisz trening" is enabled.
-- Coach can add any number of sections with no upper limit.
-- **Go back / edit:** "Wróć i edytuj" pops the last segment from the in-memory array and re-opens the section form pre-filled with its data. Saving re-appends it (with any edits applied). Button is always visible in step 3 since at least one section exists to go back to.
-- Total distance = sum of `distanceMeters × repetitions` for all sections that used "Dystans" measurement. Sections using "Czas" only contribute 0.
-- All segment data is held in client state until "Zapisz trening" — nothing is written to the DB mid-wizard.
+- **Distance units:** `interval_training` + `main_set` → meters; all other combinations → km.
+- **Go back / edit:** "Wróć i edytuj" pops the last segment and re-opens the form pre-filled with its data. Button always visible in step 3.
+- **Cancel section:** "← Wróć" in step 2 restores a popped segment on cancel-edit, returns to summary if sections exist, or returns to step 1 for the first section.
+- Total distance = sum of `distanceMeters × repetitions` across all "Dystans" sections.
+- Segment data is held in client state until "Zapisz trening" — nothing written to DB mid-wizard.
+- **Edit mode:** saves via `updateTrainingAction` which replaces all segments (delete-then-insert).
+
+---
+
+## Delete Flow
+
+Clicking 🔴 trash on a row opens a small confirmation Dialog:
+- Title: "Usuń trening"
+- Body names the workout title + warns the operation cannot be undone
+- "Anuluj" / "Usuń" (destructive) buttons
+- On confirm: `deleteTrainingAction` → segments deleted first, then workout → `router.refresh()`
 
 ---
 
@@ -76,58 +104,65 @@ A "Dodaj trening" button sits above `MonthlyTrainingTable` in `_coach-dashboard.
 |---|---|
 | Date | `workouts.scheduledDate` |
 | Workout type | `workouts.workoutType` |
-| Title | `workouts.title` (nullable) |
+| Title | `workouts.title` (nullable — fallback generated server-side) |
 | Notes (training) | `workouts.notes` |
 | Total distance (calculated) | `workouts.totalDistanceMeters` |
 | Section type | `workout_segments.segmentType` |
 | Repetitions | `workout_segments.repetitions` |
-| Distance | `workout_segments.distanceMeters` |
+| Distance | `workout_segments.distanceMeters` (always stored in meters) |
 | Duration | `workout_segments.durationMinutes` |
 | HR min / max | `workout_segments.heartRateMin` / `heartRateMax` |
-| Pace min / max | `workout_segments.paceMinSecondsPerKm` / `paceMaxSecondsPerKm` |
+| Pace min / max | `workout_segments.paceMinSecondsPerKm` / `paceMaxSecondsPerKm` (seconds/km) |
 | Section notes | `workout_segments.notes` |
 
 `workout_segments.orderIndex` = insertion order (0-based).
 
 ---
 
-## Implementation Outline
+## Data Layer (`src/data/workouts.ts`)
 
-### Dependencies to add
-- `zod` — Server Action validation (required by `docs/data-mutation.md`, not yet installed)
-- `shadcn add select` — dropdown component
-- `shadcn add label` — form labels
-- `shadcn add textarea` — notes fields
-
-### Data layer — `src/data/workouts.ts`
-- `createWorkout(input)` — inserts into `workouts`, returns inserted row
-- `createWorkoutSegment(input)` — inserts into `workout_segments`
-- Both call `requireCoach()` and verify active `coach_athlete_relationships` row before writing
-
-### Server Action — `src/app/dashboard/actions.ts`
-- `createTrainingAction(input)` — validates with Zod, calls `createWorkout` then `createWorkoutSegment` for each segment
-- Returns `{ success: true } | { error: ZodFlattenedError }`
-
-### UI components (all client, all in `src/app/dashboard/`)
-| File | Responsibility |
+| Function | Purpose |
 |---|---|
-| `_add-training-wizard.tsx` | Wizard shell; manages `step` state and `segments[]` array; calls action on save |
-| `_training-details-form.tsx` | Step 1 dialog content; emits `onNext(details)` |
-| `_section-form.tsx` | Step 2 dialog content; conditional fields based on measurement/intensity choice; emits `onSave(segment)` |
-| `_section-summary.tsx` | Step 3 dialog content; lists segments, shows total distance, three action buttons |
+| `createTrainingWithSegments(input)` | Insert workout + segments; verify active coach–athlete relationship |
+| `updateTrainingWithSegments(workoutId, input)` | Update workout fields; delete + re-insert all segments |
+| `deleteTraining(workoutId)` | Delete segments then workout; verify coach ownership |
 
-Wire `<AddTrainingWizard athleteId={...} />` into `_coach-dashboard.tsx` alongside the existing table header.
+All helpers call `requireCoach()` and check ownership before writing.
+
+---
+
+## Server Actions (`src/app/dashboard/actions.ts`)
+
+| Action | Zod schema | Notes |
+|---|---|---|
+| `createTrainingAction` | `CreateTrainingSchema` | athleteId + date + type + optional title/notes + segments≥1 |
+| `updateTrainingAction` | `CreateTrainingSchema` + `workoutId` | same payload + workoutId |
+| `deleteTrainingAction` | `{ workoutId: uuid }` | minimal |
+
+All return `{ success: true } | { error: string }`.
+
+---
+
+## UI Components (`src/app/dashboard/`)
+
+| File | Role |
+|---|---|
+| `_add-training-wizard.tsx` | Wizard shell; handles both create and edit; supports controlled open mode for table integration |
+| `_training-details-form.tsx` | Step 1; accepts `prefill`, `defaultDate`, `dateReadOnly` props |
+| `_section-form.tsx` | Step 2; distance unit adapts to workoutType + segmentType |
+| `_section-summary.tsx` | Step 3; three-button footer |
+| `_wizard-types.ts` | Shared type definitions, enum arrays, and Polish label maps |
+| `_monthly-training-table.tsx` | Table; renders action column when `athleteId` prop is provided; owns `TableAction` state; hosts delete dialog and controlled wizard |
 
 ---
 
 ## Verification
 
-1. `npm run dev` — log in as coach, go to `/dashboard`
-2. Select athlete tab → "Dodaj trening" button appears
-3. Step 1: fill date + workout type, leave title blank → "Dalej"
-4. Step 2: choose Dystans + Tętno, fill values → "Zapisz odcinek"
-5. Step 3: section listed, total distance shown; click "Wróć i edytuj" → form re-opens with previous values
-6. Edit and save → back to step 3; add a second section with Czas + Tempo
-7. "Zapisz trening" → wizard closes; workout appears in monthly table with fallback title
-8. Verify DB: one `workouts` row + two `workout_segments` rows with correct `orderIndex`
-9. `npm run lint` + `npx tsc --noEmit` pass
+1. `npm run dev` — log in as coach, select athlete
+2. **Add from button:** "Dodaj trening" → date editable → fill details → add sections → save → row appears
+3. **Add from row:** click 🟢 + on empty day → date pre-filled and disabled → fill details → save
+4. **Edit:** click 🔵 pencil → wizard pre-filled with existing data → modify section → save → row reflects changes
+5. **Delete:** click 🔴 trash → confirmation → confirm → row removed
+6. **Cancel delete:** trash → Anuluj → workout unchanged
+7. **Athlete view:** no action icons visible (no `athleteId` prop passed to table)
+8. `npm run lint` + `npx tsc --noEmit` pass

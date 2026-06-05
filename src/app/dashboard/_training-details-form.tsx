@@ -22,14 +22,24 @@ import {
 } from './_wizard-types';
 
 interface Props {
+  /** Pre-fill all fields (edit mode). */
+  prefill?: TrainingDetailsDraft;
+  /** Override the initial date value (add-from-row). */
+  defaultDate?: string;
+  /** Disable the date field so the coach cannot change it. */
+  dateReadOnly?: boolean;
   onNext: (details: TrainingDetailsDraft) => void;
 }
 
-export function TrainingDetailsForm({ onNext }: Props) {
-  const [scheduledDate, setScheduledDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const [workoutType, setWorkoutType] = useState<WorkoutType | null>(null);
-  const [title, setTitle] = useState('');
-  const [notes, setNotes] = useState('');
+export function TrainingDetailsForm({ prefill, defaultDate, dateReadOnly = false, onNext }: Props) {
+  const [scheduledDate, setScheduledDate] = useState(
+    () => prefill?.scheduledDate ?? defaultDate ?? format(new Date(), 'yyyy-MM-dd'),
+  );
+  const [workoutType, setWorkoutType] = useState<WorkoutType | null>(
+    prefill?.workoutType ?? null,
+  );
+  const [title, setTitle] = useState(prefill?.title ?? '');
+  const [notes, setNotes] = useState(prefill?.notes ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   function handleNext() {
@@ -44,7 +54,9 @@ export function TrainingDetailsForm({ onNext }: Props) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Nowy trening — szczegóły</DialogTitle>
+        <DialogTitle>
+          {prefill ? 'Edytuj trening — szczegóły' : 'Nowy trening — szczegóły'}
+        </DialogTitle>
       </DialogHeader>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
@@ -54,7 +66,11 @@ export function TrainingDetailsForm({ onNext }: Props) {
             type="date"
             value={scheduledDate}
             onChange={(e) => setScheduledDate(e.target.value)}
+            disabled={dateReadOnly}
           />
+          {dateReadOnly && (
+            <p className="text-xs text-muted-foreground">Data jest ustalona dla tego dnia.</p>
+          )}
           {errors.scheduledDate && (
             <p className="text-xs text-destructive">{errors.scheduledDate}</p>
           )}

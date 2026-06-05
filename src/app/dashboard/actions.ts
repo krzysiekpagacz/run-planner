@@ -2,7 +2,12 @@
 
 import { z } from 'zod';
 import { format, parseISO } from 'date-fns';
-import { updateAthleteCustomName, createTrainingWithSegments } from '@/data';
+import {
+  updateAthleteCustomName,
+  createTrainingWithSegments,
+  deleteTraining,
+  updateTrainingWithSegments,
+} from '@/data';
 import { WORKOUT_TYPE_LABELS } from './_wizard-types';
 
 export async function updateAthleteCustomNameAction(
@@ -51,26 +56,69 @@ const CreateTrainingSchema = z.object({
 
 export type CreateTrainingPayload = z.infer<typeof CreateTrainingSchema>;
 
+function resolveTitle(title: string | undefined, workoutType: string, scheduledDate: string) {
+  return (
+    title?.trim() ||
+    `${WORKOUT_TYPE_LABELS[workoutType as keyof typeof WORKOUT_TYPE_LABELS]} · ${format(parseISO(scheduledDate), 'dd.MM.yyyy')}`
+  );
+}
+
 export async function createTrainingAction(
   input: CreateTrainingPayload,
 ): Promise<{ success: true } | { error: string }> {
   const parsed = CreateTrainingSchema.safeParse(input);
-  if (!parsed.success) {
-    return { error: 'Nieprawidłowe dane formularza.' };
-  }
+  if (!parsed.success) return { error: 'Nieprawidłowe dane formularza.' };
 
   const { title, workoutType, scheduledDate } = parsed.data;
-  const resolvedTitle =
-    title?.trim() ||
-    `${WORKOUT_TYPE_LABELS[workoutType]} · ${format(parseISO(scheduledDate), 'dd.MM.yyyy')}`;
-
   try {
     await createTrainingWithSegments({
       ...parsed.data,
-      title: resolvedTitle,
+      title: resolveTitle(title, workoutType, scheduledDate),
     });
     return { success: true };
   } catch {
     return { error: 'Nie udało się zapisać treningu.' };
+  }
+}
+
+const UpdateTrainingSchema = CreateTrainingSchema.extend({
+  workoutId: z.string().uuid(),
+});
+
+export type UpdateTrainingPayload = z.infer<typeof UpdateTrainingSchema>;
+
+export async function updateTrainingAction(
+  input: UpdateTrainingPayload,
+): Promise<{ success: true } | { error: string }> {
+  const parsed = UpdateTrainingSchema.safeParse(input);
+  if (!parsed.success) return { error: 'Nieprawidłowe dane formularza.' };
+
+  const { workoutId, title, workoutType, scheduledDate, ...rest } = parsed.data;
+  try {
+    await updateTrainingWithSegments(workoutId, {
+      ...rest,
+      workoutType,
+      scheduledDate,
+      title: resolveTitle(title, workoutType, scheduledDate),
+    });
+    return { success: true };
+  } catch {
+    return { error: 'Nie udało się zaktualizować treningu.' };
+  }
+}
+
+const DeleteTrainingSchema = z.object({ workoutId: z.string().uuid() });
+
+export async function deleteTrainingAction(
+  input: z.infer<typeof DeleteTrainingSchema>,
+): Promise<{ success: true } | { error: string }> {
+  const parsed = DeleteTrainingSchema.safeParse(input);
+  if (!parsed.success) return { error: 'Nieprawidłowe dane.' };
+
+  try {
+    await deleteTraining(parsed.data.workoutId);
+    return { success: true };
+  } catch {
+    return { error: 'Nie udało się usunąć treningu.' };
   }
 }

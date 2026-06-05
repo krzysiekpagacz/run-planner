@@ -111,7 +111,7 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
           </div>
           {athletes.map((athlete) => (
             <TabsContent key={athlete.id} value={athlete.id}>
-              <MonthlyTrainingTable workouts={athlete.workouts} />
+              <MonthlyTrainingTable workouts={athlete.workouts} athleteId={athlete.id} />
             </TabsContent>
           ))}
         </div>

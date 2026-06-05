@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   format,
   startOfMonth,
@@ -18,10 +19,17 @@ import {
   startOfDay,
 } from 'date-fns';
 import { pl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Table,
   TableBody,
@@ -32,6 +40,8 @@ import {
 } from '@/components/ui/table';
 import type { WorkoutRow, SegmentRow } from '@/data';
 import { SEGMENT_TYPE_LABELS } from './_wizard-types';
+import { AddTrainingWizard } from './_add-training-wizard';
+import { deleteTrainingAction } from './actions';
 
 type WorkoutType = WorkoutRow['workoutType'];
 
@@ -95,18 +105,32 @@ function segmentMetric(seg: SegmentRow): string {
   return parts.join(' · ');
 }
 
-// No status column exists on `workouts`; derive a display status from the date.
 function isCompleted(scheduledDate: Date): boolean {
   return isBefore(scheduledDate, startOfDay(new Date()));
 }
 
 type ViewMode = 'month' | 'week';
-
 const WEEK_OPTS = { weekStartsOn: 1 } as const;
 
-export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
+type TableAction =
+  | { type: 'add'; date: string }
+  | { type: 'edit'; workout: WorkoutRow }
+  | { type: 'delete'; workout: WorkoutRow }
+  | null;
+
+interface Props {
+  workouts: WorkoutRow[];
+  /** When provided, coach CRUD action icons are shown for each row. */
+  athleteId?: string;
+}
+
+export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
+  const router = useRouter();
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [action, setAction] = useState<TableAction>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const days =
     viewMode === 'week'
@@ -131,6 +155,20 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
     } else {
       setViewMode('month');
       setMonth(startOfMonth(new Date()));
+    }
+  }
+
+  async function handleDelete() {
+    if (action?.type !== 'delete') return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    const result = await deleteTrainingAction({ workoutId: action.workout.id });
+    setIsDeleting(false);
+    if ('success' in result) {
+      setAction(null);
+      router.refresh();
+    } else {
+      setDeleteError(result.error);
     }
   }
 
@@ -170,129 +208,221 @@ export function MonthlyTrainingTable({ workouts }: { workouts: WorkoutRow[] }) {
           </div>
         </CardHeader>
         <CardContent>
-        <Table containerClassName="max-h-[65vh] overflow-y-auto sm:max-h-[70vh] lg:max-h-[75vh]">
-          <TableHeader className="sticky top-0 z-10 bg-card">
-            <TableRow>
-              <TableHead className="w-28">Data</TableHead>
-              <TableHead className="w-12">Dzień</TableHead>
-              <TableHead className="w-36">Typ</TableHead>
-              <TableHead>Trening</TableHead>
-              <TableHead className="w-24 text-right">Dystans</TableHead>
-              <TableHead className="w-24 text-right">Czas</TableHead>
-              <TableHead className="w-28">Status</TableHead>
-              <TableHead>Plan</TableHead>
-              <TableHead>Dodatkowe notatki</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {days.map((day) => {
-              const workout = workouts.find((w) =>
-                isSameDay(parseISO(w.scheduledDate), day),
-              );
-              const completed = workout ? isCompleted(day) : false;
-              return (
-                <TableRow
-                  key={day.toISOString()}
-                  className={workout ? '' : 'text-muted-foreground'}
-                >
-                  <TableCell className="font-mono text-sm">
-                    {format(day, 'dd.MM.yyyy')}
-                  </TableCell>
-                  <TableCell className="text-sm">{format(day, 'EEE', { locale: pl })}</TableCell>
-                  <TableCell>
-                    {workout ? (
-                      <Badge
-                        variant="secondary"
-                        className={WORKOUT_TYPE_CLASSES[workout.workoutType]}
-                      >
-                        {WORKOUT_TYPE_LABELS[workout.workoutType]}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {workout?.title ?? <span className="text-xs">Odpoczynek</span>}
-                  </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {workout?.totalDistanceMeters != null
-                      ? formatDistance(workout.totalDistanceMeters)
-                      : '—'}
-                  </TableCell>
-                  <TableCell className="text-right text-sm">
-                    {workout?.totalDurationMinutes != null
-                      ? formatDuration(workout.totalDurationMinutes)
-                      : '—'}
-                  </TableCell>
-                  <TableCell>
-                    {workout ? (
-                      <Badge
-                        variant="outline"
-                        className={
-                          completed
-                            ? 'border-green-600 text-green-700'
-                            : 'border-neutral-400 text-neutral-600'
-                        }
-                      >
-                        {completed ? 'Ukończony' : 'Zaplanowany'}
-                      </Badge>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-sm py-2">
-                    {workout && workout.segments.length > 0 ? (
-                      <div className="flex flex-col gap-0.5">
-                        {workout.segments.map((seg, i) => (
-                          <div key={seg.id} className="flex items-baseline gap-1 text-xs leading-snug">
-                            <span className="shrink-0 tabular-nums text-muted-foreground">
-                              {i + 1}.
-                            </span>
-                            <span>
-                              <span className="font-semibold text-foreground">
-                                {SEGMENT_TYPE_LABELS[seg.segmentType]}
-                              </span>
-                              {segmentMetric(seg) && (
-                                <span className="text-muted-foreground">
-                                  {' · '}
-                                  {segmentMetric(seg)}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </TableCell>
-                  <TableCell className="max-w-xs py-2 align-top">
-                    {workout && (() => {
-                      const segNotes = workout.segments.filter((s) => s.notes);
-                      const hasAny = workout.notes || segNotes.length > 0;
-                      if (!hasAny) return null;
-                      return (
-                        <div className="flex flex-col gap-1">
-                          {workout.notes && (
-                            <p className="text-xs text-foreground">{workout.notes}</p>
+          <Table containerClassName="max-h-[65vh] overflow-y-auto sm:max-h-[70vh] lg:max-h-[75vh]">
+            <TableHeader className="sticky top-0 z-10 bg-card">
+              <TableRow>
+                {athleteId && <TableHead className="w-14" />}
+                <TableHead className="w-28">Data</TableHead>
+                <TableHead className="w-12">Dzień</TableHead>
+                <TableHead className="w-36">Typ</TableHead>
+                <TableHead>Trening</TableHead>
+                <TableHead className="w-24 text-right">Dystans</TableHead>
+                <TableHead className="w-24 text-right">Czas</TableHead>
+                <TableHead className="w-28">Status</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Dodatkowe notatki</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {days.map((day) => {
+                const workout = workouts.find((w) =>
+                  isSameDay(parseISO(w.scheduledDate), day),
+                );
+                const completed = workout ? isCompleted(day) : false;
+                const dateStr = format(day, 'yyyy-MM-dd');
+
+                return (
+                  <TableRow
+                    key={day.toISOString()}
+                    className={workout ? '' : 'text-muted-foreground'}
+                  >
+                    {athleteId && (
+                      <TableCell className="py-1">
+                        <div className="flex items-center gap-0.5">
+                          {!workout ? (
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              title="Dodaj trening"
+                              className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                              onClick={() => setAction({ type: 'add', date: dateStr })}
+                            >
+                              <PlusCircle />
+                            </Button>
+                          ) : (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Edytuj trening"
+                                className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                onClick={() => setAction({ type: 'edit', workout })}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Usuń trening"
+                                className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                                onClick={() => setAction({ type: 'delete', workout })}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
                           )}
-                          {segNotes.map((seg) => (
-                            <div key={seg.id} className="text-xs leading-snug">
-                              <span className="font-medium text-foreground">
-                                {SEGMENT_TYPE_LABELS[seg.segmentType]}:
-                              </span>{' '}
-                              <span className="whitespace-pre-wrap text-muted-foreground">
-                                {seg.notes}
+                        </div>
+                      </TableCell>
+                    )}
+                    <TableCell className="font-mono text-sm">
+                      {format(day, 'dd.MM.yyyy')}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {format(day, 'EEE', { locale: pl })}
+                    </TableCell>
+                    <TableCell>
+                      {workout ? (
+                        <Badge
+                          variant="secondary"
+                          className={WORKOUT_TYPE_CLASSES[workout.workoutType]}
+                        >
+                          {WORKOUT_TYPE_LABELS[workout.workoutType]}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {workout?.title ?? <span className="text-xs">Odpoczynek</span>}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {workout?.totalDistanceMeters != null
+                        ? formatDistance(workout.totalDistanceMeters)
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {workout?.totalDurationMinutes != null
+                        ? formatDuration(workout.totalDurationMinutes)
+                        : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {workout ? (
+                        <Badge
+                          variant="outline"
+                          className={
+                            completed
+                              ? 'border-green-600 text-green-700'
+                              : 'border-neutral-400 text-neutral-600'
+                          }
+                        >
+                          {completed ? 'Ukończony' : 'Zaplanowany'}
+                        </Badge>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="max-w-sm py-2">
+                      {workout && workout.segments.length > 0 ? (
+                        <div className="flex flex-col gap-0.5">
+                          {workout.segments.map((seg, i) => (
+                            <div
+                              key={seg.id}
+                              className="flex items-baseline gap-1 text-xs leading-snug"
+                            >
+                              <span className="shrink-0 tabular-nums text-muted-foreground">
+                                {i + 1}.
+                              </span>
+                              <span>
+                                <span className="font-semibold text-foreground">
+                                  {SEGMENT_TYPE_LABELS[seg.segmentType]}
+                                </span>
+                                {segmentMetric(seg) && (
+                                  <span className="text-muted-foreground">
+                                    {' · '}
+                                    {segmentMetric(seg)}
+                                  </span>
+                                )}
                               </span>
                             </div>
                           ))}
                         </div>
-                      );
-                    })()}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="max-w-xs py-2 align-top">
+                      {workout &&
+                        (() => {
+                          const segNotes = workout.segments.filter((s) => s.notes);
+                          const hasAny = workout.notes || segNotes.length > 0;
+                          if (!hasAny) return null;
+                          return (
+                            <div className="flex flex-col gap-1">
+                              {workout.notes && (
+                                <p className="text-xs text-foreground">{workout.notes}</p>
+                              )}
+                              {segNotes.map((seg) => (
+                                <div key={seg.id} className="text-xs leading-snug">
+                                  <span className="font-medium text-foreground">
+                                    {SEGMENT_TYPE_LABELS[seg.segmentType]}:
+                                  </span>{' '}
+                                  <span className="whitespace-pre-wrap text-muted-foreground">
+                                    {seg.notes}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
+
+      {/* Delete confirmation */}
+      <Dialog
+        open={action?.type === 'delete'}
+        onOpenChange={(open) => !open && setAction(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Usuń trening</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Czy na pewno chcesz usunąć trening{' '}
+            <span className="font-medium text-foreground">
+              {action?.type === 'delete' ? action.workout.title : ''}
+            </span>
+            ? Tej operacji nie można cofnąć.
+          </p>
+          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAction(null)} disabled={isDeleting}>
+              Anuluj
+            </Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? 'Usuwanie…' : 'Usuń'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add / Edit wizard (controlled) */}
+      {athleteId && (action?.type === 'add' || action?.type === 'edit') && (
+        <AddTrainingWizard
+          key={
+            action.type === 'edit'
+              ? `edit-${action.workout.id}`
+              : `add-${action.date}`
+          }
+          athleteId={athleteId}
+          open
+          onOpenChange={(open) => !open && setAction(null)}
+          defaultDate={action.type === 'add' ? action.date : undefined}
+          dateReadOnly={action.type === 'add'}
+          editWorkout={action.type === 'edit' ? action.workout : undefined}
+        />
+      )}
     </div>
   );
 }
