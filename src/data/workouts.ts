@@ -239,6 +239,49 @@ export async function createTrainingWithSegments(
   return { id: workout.id };
 }
 
+/** Updates the free-text notes on a workout. Coach must own the workout. */
+export async function updateWorkoutNotes(
+  workoutId: string,
+  notes: string | null,
+): Promise<void> {
+  const coach = await requireCoach();
+
+  const [row] = await db
+    .select({ coachId: workouts.coachId })
+    .from(workouts)
+    .where(eq(workouts.id, workoutId))
+    .limit(1);
+
+  if (!row || row.coachId !== coach.id) throw new Error('Forbidden');
+
+  await db
+    .update(workouts)
+    .set({ notes, updatedAt: new Date() })
+    .where(eq(workouts.id, workoutId));
+}
+
+/** Updates the notes on a single segment. Coach must own the parent workout. */
+export async function updateSegmentNotes(
+  segmentId: string,
+  notes: string | null,
+): Promise<void> {
+  const coach = await requireCoach();
+
+  const [row] = await db
+    .select({ coachId: workouts.coachId })
+    .from(workoutSegments)
+    .innerJoin(workouts, eq(workouts.id, workoutSegments.workoutId))
+    .where(eq(workoutSegments.id, segmentId))
+    .limit(1);
+
+  if (!row || row.coachId !== coach.id) throw new Error('Forbidden');
+
+  await db
+    .update(workoutSegments)
+    .set({ notes })
+    .where(eq(workoutSegments.id, segmentId));
+}
+
 /** Deletes a workout and all its segments. Coach must own the workout. */
 export async function deleteTraining(workoutId: string): Promise<void> {
   const coach = await requireCoach();

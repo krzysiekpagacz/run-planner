@@ -38,10 +38,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
 import type { WorkoutRow, SegmentRow } from '@/data';
 import { SEGMENT_TYPE_LABELS } from './_wizard-types';
 import { AddTrainingWizard } from './_add-training-wizard';
-import { deleteTrainingAction } from './actions';
+import {
+  deleteTrainingAction,
+  updateWorkoutNotesAction,
+  updateSegmentNotesAction,
+} from './actions';
 
 type WorkoutType = WorkoutRow['workoutType'];
 
@@ -118,6 +123,10 @@ type TableAction =
   | { type: 'delete'; workout: WorkoutRow }
   | null;
 
+type EditingNote =
+  | { type: 'workout'; workoutId: string; current: string }
+  | { type: 'segment'; segmentId: string; label: string; current: string };
+
 interface Props {
   workouts: WorkoutRow[];
   /** When provided, coach CRUD action icons are shown for each row. */
@@ -131,6 +140,10 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
   const [action, setAction] = useState<TableAction>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   const days =
     viewMode === 'week'
@@ -147,6 +160,37 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
     viewMode === 'week'
       ? `${format(startOfWeek(month, WEEK_OPTS), 'dd.MM.yyyy')} – ${format(endOfWeek(month, WEEK_OPTS), 'dd.MM.yyyy')}`
       : format(month, 'MMMM yyyy');
+
+  function openNoteEdit(note: EditingNote) {
+    setNoteDraft(note.current);
+    setEditingNote(note);
+  }
+
+  async function handleSaveNote() {
+    if (!editingNote) return;
+    setIsSavingNote(true);
+    const notes = noteDraft.trim() || null;
+    const result =
+      editingNote.type === 'workout'
+        ? await updateWorkoutNotesAction({ workoutId: editingNote.workoutId, notes })
+        : await updateSegmentNotesAction({ segmentId: editingNote.segmentId, notes });
+    setIsSavingNote(false);
+    if ('success' in result) {
+      setEditingNote(null);
+      router.refresh();
+    }
+  }
+
+  async function handleDeleteNote(
+    note: { type: 'workout'; workoutId: string } | { type: 'segment'; segmentId: string },
+  ) {
+    if (note.type === 'workout') {
+      await updateWorkoutNotesAction({ workoutId: note.workoutId, notes: null });
+    } else {
+      await updateSegmentNotesAction({ segmentId: note.segmentId, notes: null });
+    }
+    router.refresh();
+  }
 
   function toggleView() {
     if (viewMode === 'month') {
@@ -352,19 +396,59 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                           const segNotes = workout.segments.filter((s) => s.notes);
                           const hasAny = workout.notes || segNotes.length > 0;
                           if (!hasAny) return null;
+                          const noteButtons = (
+                            editEntry: EditingNote,
+                            deleteEntry: { type: 'workout'; workoutId: string } | { type: 'segment'; segmentId: string },
+                          ) => athleteId ? (
+                            <div className="flex shrink-0 gap-0.5">
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Edytuj notatkę"
+                                className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                onClick={() => openNoteEdit(editEntry)}
+                              >
+                                <Pencil />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                title="Usuń notatkę"
+                                className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                                onClick={() => handleDeleteNote(deleteEntry)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </div>
+                          ) : null;
+
                           return (
                             <div className="flex flex-col gap-1">
                               {workout.notes && (
-                                <p className="text-xs text-foreground">{workout.notes}</p>
+                                <div className="flex items-start gap-1">
+                                  <p className="flex-1 text-xs text-foreground">
+                                    {workout.notes}
+                                  </p>
+                                  {noteButtons(
+                                    { type: 'workout', workoutId: workout.id, current: workout.notes },
+                                    { type: 'workout', workoutId: workout.id },
+                                  )}
+                                </div>
                               )}
                               {segNotes.map((seg) => (
-                                <div key={seg.id} className="text-xs leading-snug">
-                                  <span className="font-medium text-foreground">
-                                    {SEGMENT_TYPE_LABELS[seg.segmentType]}:
-                                  </span>{' '}
-                                  <span className="whitespace-pre-wrap text-muted-foreground">
-                                    {seg.notes}
-                                  </span>
+                                <div key={seg.id} className="flex items-start gap-1 text-xs leading-snug">
+                                  <div className="flex-1">
+                                    <span className="font-medium text-foreground">
+                                      {SEGMENT_TYPE_LABELS[seg.segmentType]}:
+                                    </span>{' '}
+                                    <span className="whitespace-pre-wrap text-muted-foreground">
+                                      {seg.notes}
+                                    </span>
+                                  </div>
+                                  {noteButtons(
+                                    { type: 'segment', segmentId: seg.id, label: SEGMENT_TYPE_LABELS[seg.segmentType], current: seg.notes! },
+                                    { type: 'segment', segmentId: seg.id },
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -402,6 +486,37 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? 'Usuwanie…' : 'Usuń'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit note dialog */}
+      <Dialog open={editingNote !== null} onOpenChange={(open) => !open && setEditingNote(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {editingNote?.type === 'segment'
+                ? `Notatki — ${editingNote.label}`
+                : 'Notatki ogólne'}
+            </DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={noteDraft}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            placeholder="Wpisz notatki…"
+            className="min-h-24"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditingNote(null)}
+              disabled={isSavingNote}
+            >
+              Anuluj
+            </Button>
+            <Button onClick={handleSaveNote} disabled={isSavingNote}>
+              {isSavingNote ? 'Zapisywanie…' : 'Zapisz'}
             </Button>
           </DialogFooter>
         </DialogContent>

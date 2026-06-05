@@ -7,6 +7,8 @@ import {
   createTrainingWithSegments,
   deleteTraining,
   updateTrainingWithSegments,
+  updateWorkoutNotes,
+  updateSegmentNotes,
 } from '@/data';
 import { WORKOUT_TYPE_LABELS } from './_wizard-types';
 
@@ -104,6 +106,42 @@ export async function updateTrainingAction(
     return { success: true };
   } catch {
     return { error: 'Nie udało się zaktualizować treningu.' };
+  }
+}
+
+const UpdateWorkoutNotesSchema = z.object({
+  workoutId: z.string().uuid(),
+  notes: z.string().nullable(),
+});
+
+export async function updateWorkoutNotesAction(
+  input: z.infer<typeof UpdateWorkoutNotesSchema>,
+): Promise<{ success: true } | { error: string }> {
+  const parsed = UpdateWorkoutNotesSchema.safeParse(input);
+  if (!parsed.success) return { error: 'Nieprawidłowe dane.' };
+  try {
+    await updateWorkoutNotes(parsed.data.workoutId, parsed.data.notes);
+    return { success: true };
+  } catch {
+    return { error: 'Nie udało się zapisać notatek.' };
+  }
+}
+
+const UpdateSegmentNotesSchema = z.object({
+  segmentId: z.string().uuid(),
+  notes: z.string().nullable(),
+});
+
+export async function updateSegmentNotesAction(
+  input: z.infer<typeof UpdateSegmentNotesSchema>,
+): Promise<{ success: true } | { error: string }> {
+  const parsed = UpdateSegmentNotesSchema.safeParse(input);
+  if (!parsed.success) return { error: 'Nieprawidłowe dane.' };
+  try {
+    await updateSegmentNotes(parsed.data.segmentId, parsed.data.notes);
+    return { success: true };
+  } catch {
+    return { error: 'Nie udało się zapisać notatek.' };
   }
 }
 
