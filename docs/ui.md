@@ -82,6 +82,49 @@ format(date, 'dd.MM.yyyy') // → "01.01.2026", "26.10.2024", "13.12.2021"
 - Year is always four digits.
 - Separator is a dot (`.`), not `/` or `-`.
 
+## Hover-Reveal Action Buttons
+
+**Contextual action buttons (edit, delete, etc.) placed inline within table rows or list entries must be hidden by default and revealed only on hover.** This keeps the UI clean at a glance while still making actions discoverable.
+
+### Implementation
+
+Use Tailwind's `group` / `group-hover` utilities with an `opacity` transition. Apply `group` to the hover target (the row or entry container) and `opacity-0 group-hover:opacity-100 transition-opacity duration-150` to the button container.
+
+```tsx
+// Row-level trigger — buttons appear when hovering anywhere in the row
+<TableRow className="group ...">
+  <TableCell>
+    <div className="flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <Button size="icon-xs" variant="ghost" ...><Pencil /></Button>
+      <Button size="icon-xs" variant="ghost" ...><Trash2 /></Button>
+    </div>
+  </TableCell>
+</TableRow>
+
+// Entry-level trigger — buttons appear only when hovering that specific entry
+<div className="group flex items-start gap-1">
+  <p className="flex-1 text-xs">Note text here</p>
+  <div className="flex gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+    <Button size="icon-xs" variant="ghost" ...><Pencil /></Button>
+    <Button size="icon-xs" variant="ghost" ...><Trash2 /></Button>
+  </div>
+</div>
+```
+
+**Nested groups**: When a row has row-level buttons AND entry-level buttons inside it, use `group` on the row for the row-level buttons and a separate `group` on each entry div for entry-level buttons. Tailwind resolves `group-hover` against the **closest** `group` ancestor, so the two scopes remain independent.
+
+### Button sizing and colours
+
+Use `size="icon-xs"` + `variant="ghost"` for all inline action buttons. Standard colours:
+
+| Action | Icon | Class |
+|---|---|---|
+| Add | `PlusCircle` | `text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700` |
+| Edit | `Pencil` | `text-blue-600 hover:bg-blue-50 hover:text-blue-700` |
+| Delete | `Trash2` | `text-red-500 hover:bg-red-50 hover:text-red-600` |
+
+Always add a `title` attribute for tooltip text.
+
 ## Language
 
 **The application is Polish-only. All user-facing strings must be written in Polish. There is no i18n system, no translation files, and no language switching.**
