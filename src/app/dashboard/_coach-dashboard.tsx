@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { MonthlyTrainingTable } from './_monthly-training-table';
+import { MonthlyTrainingTable, type ViewMode } from './_monthly-training-table';
 import { updateAthleteCustomNameAction } from './actions';
 import { AddTrainingWizard } from './_add-training-wizard';
 import type { Athlete, WorkoutRow } from '@/data';
@@ -31,6 +31,7 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
   // nameOverrides holds optimistic name edits until the next server refresh
   const [nameOverrides, setNameOverrides] = useState<Record<string, string>>({});
   const [selectedAthleteId, setSelectedAthleteId] = useState(initialAthletes[0]?.id ?? '');
+  const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [editingAthlete, setEditingAthlete] = useState<CoachAthlete | null>(null);
   const [draftName, setDraftName] = useState('');
   const [saved, setSaved] = useState(false);
@@ -78,18 +79,27 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
   return (
     <>
       <Tabs
-        orientation="vertical"
         value={selectedAthleteId}
         onValueChange={setSelectedAthleteId}
-        className="flex flex-row items-start gap-6"
+        className="flex flex-col gap-4"
       >
-        <TabsList className="h-auto w-56 shrink-0 flex-col items-stretch gap-1 bg-muted/50 p-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setViewMode((m) => (m === 'month' ? 'week' : 'month'))}
+          >
+            {viewMode === 'month' ? 'Widok tygodniowy' : 'Widok miesięczny'}
+          </Button>
+          <AddTrainingWizard athleteId={selectedAthleteId} />
+        </div>
+
+        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-muted/50 p-2">
           {athletes.map((athlete) => (
             <ContextMenu key={athlete.id}>
-              <ContextMenuTrigger className="w-full">
+              <ContextMenuTrigger>
                 <TabsTrigger
                   value={athlete.id}
-                  className="h-auto w-full flex-none flex-col items-start gap-0.5 px-3 py-2 text-left data-active:bg-blue-600 data-active:text-white dark:data-active:bg-blue-600 dark:data-active:text-white"
+                  className="h-auto flex-none px-3 py-2 data-active:bg-blue-600 data-active:text-white dark:data-active:bg-blue-600 dark:data-active:text-white"
                 >
                   <span className="font-medium">
                     {athlete.customName ?? athlete.name ?? 'Nieznany zawodnik'}
@@ -105,16 +115,16 @@ export function CoachDashboard({ athletes: initialAthletes }: { athletes: CoachA
           ))}
         </TabsList>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div className="flex justify-end">
-            <AddTrainingWizard athleteId={selectedAthleteId} />
-          </div>
-          {athletes.map((athlete) => (
-            <TabsContent key={athlete.id} value={athlete.id}>
-              <MonthlyTrainingTable workouts={athlete.workouts} athleteId={athlete.id} />
-            </TabsContent>
-          ))}
-        </div>
+        {athletes.map((athlete) => (
+          <TabsContent key={athlete.id} value={athlete.id}>
+            <MonthlyTrainingTable
+              workouts={athlete.workouts}
+              athleteId={athlete.id}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+          </TabsContent>
+        ))}
       </Tabs>
 
       <Dialog open={editingAthlete !== null} onOpenChange={(open) => !open && closeDialog()}>

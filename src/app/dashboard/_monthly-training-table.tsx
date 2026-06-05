@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   format,
@@ -122,7 +122,7 @@ function isCompleted(scheduledDate: Date): boolean {
   return isBefore(scheduledDate, startOfDay(new Date()));
 }
 
-type ViewMode = 'month' | 'week';
+export type ViewMode = 'month' | 'week';
 const WEEK_OPTS = { weekStartsOn: 1 } as const;
 
 type TableAction =
@@ -139,9 +139,13 @@ interface EditingNoteDialog {
   selectedTarget: string;
 }
 
-type DeletingNote =
-  | { type: 'workout'; workoutId: string }
-  | { type: 'segment'; segmentId: string; label: string };
+interface DeletingNote {
+  workoutId: string;
+  /** Notes that currently exist and can be deleted, for the dropdown. */
+  targets: Array<{ id: string; label: string }>;
+  /** Currently selected target id ('workout' or segment id). */
+  selectedTarget: string;
+}
 
 interface AddingNote {
   workoutId: string;
@@ -153,12 +157,27 @@ interface Props {
   workouts: WorkoutRow[];
   /** When provided, coach CRUD action icons are shown for each row. */
   athleteId?: string;
+  /**
+   * Controlled view mode. When provided, the table does not render its own
+   * toggle button — the parent owns the toggle and the shared state.
+   */
+  viewMode?: ViewMode;
+  onViewModeChange?: (mode: ViewMode) => void;
 }
 
-export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
+export function MonthlyTrainingTable({
+  workouts,
+  athleteId,
+  viewMode: controlledViewMode,
+  onViewModeChange,
+}: Props) {
   const router = useRouter();
-  const [month, setMonth] = useState(() => startOfMonth(new Date()));
-  const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const isViewControlled = controlledViewMode !== undefined;
+  const [internalViewMode, setInternalViewMode] = useState<ViewMode>('month');
+  const viewMode = controlledViewMode ?? internalViewMode;
+  const [month, setMonth] = useState(() =>
+    viewMode === 'week' ? startOfWeek(new Date(), WEEK_OPTS) : startOfMonth(new Date()),
+  );
   const [action, setAction] = useState<TableAction>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -218,6 +237,27 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
     setEditingNoteDialog((prev) => prev ? { ...prev, selectedTarget: targetId } : null);
   }
 
+  function openNoteDelete(workout: WorkoutRow) {
+    const targets: DeletingNote['targets'] = [];
+    if (workout.notes) {
+      targets.push({ id: 'workout', label: 'Trening (ogólne)' });
+    }
+    workout.segments.forEach((s, idx) => {
+      if (s.notes) {
+        targets.push({
+          id: s.id,
+          label: `${idx + 1}. ${SEGMENT_TYPE_LABELS[s.segmentType]}`,
+        });
+      }
+    });
+    if (targets.length === 0) return;
+    setDeletingNote({
+      workoutId: workout.id,
+      targets,
+      selectedTarget: targets.length > 1 ? 'all' : targets[0].id,
+    });
+  }
+
   async function handleSaveNote() {
     if (!editingNoteDialog) return;
     setIsSavingNote(true);
@@ -237,11 +277,15 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
   async function handleConfirmDeleteNote() {
     if (!deletingNote) return;
     setIsDeletingNote(true);
-    if (deletingNote.type === 'workout') {
-      await updateWorkoutNotesAction({ workoutId: deletingNote.workoutId, notes: null });
-    } else {
-      await updateSegmentNotesAction({ segmentId: deletingNote.segmentId, notes: null });
-    }
+    const { selectedTarget, workoutId, targets } = deletingNote;
+    const toDelete = selectedTarget === 'all' ? targets.map((t) => t.id) : [selectedTarget];
+    await Promise.all(
+      toDelete.map((id) =>
+        id === 'workout'
+          ? updateWorkoutNotesAction({ workoutId, notes: null })
+          : updateSegmentNotesAction({ segmentId: id, notes: null }),
+      ),
+    );
     setIsDeletingNote(false);
     setDeletingNote(null);
     router.refresh();
@@ -263,14 +307,21 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
   }
 
   function toggleView() {
-    if (viewMode === 'month') {
-      setViewMode('week');
-      setMonth(startOfWeek(new Date(), WEEK_OPTS));
-    } else {
-      setViewMode('month');
-      setMonth(startOfMonth(new Date()));
-    }
+    const next: ViewMode = viewMode === 'month' ? 'week' : 'month';
+    if (isViewControlled) onViewModeChange?.(next);
+    else setInternalViewMode(next);
   }
+
+  // Reset to the current period whenever the view mode switches (covers both
+  // the internal toggle and a parent-controlled change).
+  const prevViewMode = useRef(viewMode);
+  useEffect(() => {
+    if (prevViewMode.current === viewMode) return;
+    prevViewMode.current = viewMode;
+    setMonth(
+      viewMode === 'week' ? startOfWeek(new Date(), WEEK_OPTS) : startOfMonth(new Date()),
+    );
+  }, [viewMode]);
 
   async function handleDelete() {
     if (action?.type !== 'delete') return;
@@ -288,11 +339,13 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <Button variant="outline" onClick={toggleView}>
-          {viewMode === 'month' ? 'Widok tygodniowy' : 'Widok miesięczny'}
-        </Button>
-      </div>
+      {!isViewControlled && (
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={toggleView}>
+            {viewMode === 'month' ? 'Widok tygodniowy' : 'Widok miesięczny'}
+          </Button>
+        </div>
+      )}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -469,86 +522,78 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                           const hasAddableTargets =
                             !workout.notes || workout.segments.some((s) => !s.notes);
 
-                          const noteButtons = (
-                            targetId: string,
-                            deleteEntry: DeletingNote,
-                          ) => athleteId ? (
-                            <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                title="Edytuj notatkę"
-                                className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                                onClick={() => openNoteEdit(workout, targetId)}
-                              >
-                                <Pencil />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-xs"
-                                title="Usuń notatkę"
-                                className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                                onClick={() => setDeletingNote(deleteEntry)}
-                              >
-                                <Trash2 />
-                              </Button>
-                            </div>
-                          ) : null;
+                          const firstNoteTarget = workout.notes
+                            ? 'workout'
+                            : (segNotes[0]?.id ?? 'workout');
 
                           return (
                             <div className="flex flex-col gap-1">
-                              {athleteId && hasAddableTargets && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  title="Dodaj notatkę"
-                                  className="self-start opacity-0 transition-opacity duration-150 group-hover:opacity-100 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                                  onClick={() => {
-                                    const firstTarget = !workout.notes
-                                      ? 'workout'
-                                      : (workout.segments.find((s) => !s.notes)?.id ?? 'workout');
-                                    setAddNoteTarget(firstTarget);
-                                    setAddNoteText('');
-                                    setAddingNote({
-                                      workoutId: workout.id,
-                                      segments: workout.segments
-                                        .map((s, idx) => ({ s, idx }))
-                                        .filter(({ s }) => !s.notes)
-                                        .map(({ s, idx }) => ({
-                                          id: s.id,
-                                          label: `${idx + 1}. ${SEGMENT_TYPE_LABELS[s.segmentType]}`,
-                                        })),
-                                    });
-                                  }}
-                                >
-                                  <PlusCircle />
-                                </Button>
-                              )}
-                              {workout.notes && (
-                                <div className="group flex items-start gap-1">
-                                  <p className="flex-1 text-xs text-foreground">
-                                    {workout.notes}
-                                  </p>
-                                  {noteButtons(
-                                    'workout',
-                                    { type: 'workout', workoutId: workout.id },
+                              {athleteId && (
+                                <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                                  {hasAddableTargets && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Dodaj notatkę"
+                                      className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                                      onClick={() => {
+                                        const firstTarget = !workout.notes
+                                          ? 'workout'
+                                          : (workout.segments.find((s) => !s.notes)?.id ?? 'workout');
+                                        setAddNoteTarget(firstTarget);
+                                        setAddNoteText('');
+                                        setAddingNote({
+                                          workoutId: workout.id,
+                                          segments: workout.segments
+                                            .map((s, idx) => ({ s, idx }))
+                                            .filter(({ s }) => !s.notes)
+                                            .map(({ s, idx }) => ({
+                                              id: s.id,
+                                              label: `${idx + 1}. ${SEGMENT_TYPE_LABELS[s.segmentType]}`,
+                                            })),
+                                        });
+                                      }}
+                                    >
+                                      <PlusCircle />
+                                    </Button>
+                                  )}
+                                  {hasAny && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Edytuj notatkę"
+                                      className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                                      onClick={() => openNoteEdit(workout, firstNoteTarget)}
+                                    >
+                                      <Pencil />
+                                    </Button>
+                                  )}
+                                  {hasAny && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon-xs"
+                                      title="Usuń notatkę"
+                                      className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                                      onClick={() => openNoteDelete(workout)}
+                                    >
+                                      <Trash2 />
+                                    </Button>
                                   )}
                                 </div>
                               )}
+                              {workout.notes && (
+                                <p className="text-xs text-foreground">
+                                  {workout.notes}
+                                </p>
+                              )}
                               {segNotes.map((seg) => (
-                                <div key={seg.id} className="group flex items-start gap-1 text-xs leading-snug">
-                                  <div className="flex-1">
-                                    <span className="font-medium text-foreground">
-                                      {SEGMENT_TYPE_LABELS[seg.segmentType]}:
-                                    </span>{' '}
-                                    <span className="whitespace-pre-wrap text-muted-foreground">
-                                      {seg.notes}
-                                    </span>
-                                  </div>
-                                  {noteButtons(
-                                    seg.id,
-                                    { type: 'segment', segmentId: seg.id, label: SEGMENT_TYPE_LABELS[seg.segmentType] },
-                                  )}
+                                <div key={seg.id} className="text-xs leading-snug">
+                                  <span className="font-medium text-foreground">
+                                    {SEGMENT_TYPE_LABELS[seg.segmentType]}:
+                                  </span>{' '}
+                                  <span className="whitespace-pre-wrap text-muted-foreground">
+                                    {seg.notes}
+                                  </span>
                                 </div>
                               ))}
                             </div>
@@ -600,12 +645,51 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
           <DialogHeader>
             <DialogTitle>Usuń notatkę</DialogTitle>
           </DialogHeader>
+          {deletingNote && deletingNote.targets.length > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Odcinek</Label>
+              <Select
+                value={deletingNote.selectedTarget}
+                onValueChange={(val) =>
+                  val &&
+                  setDeletingNote((prev) =>
+                    prev ? { ...prev, selectedTarget: val } : null,
+                  )
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue>
+                    {(val: string) => {
+                      if (val === 'all') return 'Wszystkie notatki';
+                      const t = deletingNote.targets.find((x) => x.id === val);
+                      return t?.label ?? val;
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Wszystkie notatki</SelectItem>
+                  {deletingNote.targets.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">
             Czy na pewno chcesz usunąć{' '}
-            {deletingNote?.type === 'segment' ? (
-              <>notatkę odcinka <span className="font-medium text-foreground">{deletingNote.label}</span></>
-            ) : (
+            {deletingNote?.selectedTarget === 'all' ? (
+              'wszystkie notatki tego treningu'
+            ) : deletingNote?.selectedTarget === 'workout' ? (
               'ogólne notatki treningu'
+            ) : (
+              <>
+                notatkę odcinka{' '}
+                <span className="font-medium text-foreground">
+                  {deletingNote?.targets.find((t) => t.id === deletingNote.selectedTarget)?.label}
+                </span>
+              </>
             )}
             ? Tej operacji nie można cofnąć.
           </p>
