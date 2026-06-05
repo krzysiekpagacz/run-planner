@@ -419,7 +419,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
           open
           onOpenChange={(open) => !open && setAction(null)}
           defaultDate={action.type === 'add' ? action.date : undefined}
-          dateReadOnly={action.type === 'add'}
+          dateReadOnly
           editWorkout={action.type === 'edit' ? action.workout : undefined}
         />
       )}
