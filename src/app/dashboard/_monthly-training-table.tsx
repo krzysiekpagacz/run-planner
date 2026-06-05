@@ -127,6 +127,10 @@ type EditingNote =
   | { type: 'workout'; workoutId: string; current: string }
   | { type: 'segment'; segmentId: string; label: string; current: string };
 
+type DeletingNote =
+  | { type: 'workout'; workoutId: string }
+  | { type: 'segment'; segmentId: string; label: string };
+
 interface Props {
   workouts: WorkoutRow[];
   /** When provided, coach CRUD action icons are shown for each row. */
@@ -144,6 +148,8 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
   const [editingNote, setEditingNote] = useState<EditingNote | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [deletingNote, setDeletingNote] = useState<DeletingNote | null>(null);
+  const [isDeletingNote, setIsDeletingNote] = useState(false);
 
   const days =
     viewMode === 'week'
@@ -181,14 +187,16 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
     }
   }
 
-  async function handleDeleteNote(
-    note: { type: 'workout'; workoutId: string } | { type: 'segment'; segmentId: string },
-  ) {
-    if (note.type === 'workout') {
-      await updateWorkoutNotesAction({ workoutId: note.workoutId, notes: null });
+  async function handleConfirmDeleteNote() {
+    if (!deletingNote) return;
+    setIsDeletingNote(true);
+    if (deletingNote.type === 'workout') {
+      await updateWorkoutNotesAction({ workoutId: deletingNote.workoutId, notes: null });
     } else {
-      await updateSegmentNotesAction({ segmentId: note.segmentId, notes: null });
+      await updateSegmentNotesAction({ segmentId: deletingNote.segmentId, notes: null });
     }
+    setIsDeletingNote(false);
+    setDeletingNote(null);
     router.refresh();
   }
 
@@ -398,7 +406,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                           if (!hasAny) return null;
                           const noteButtons = (
                             editEntry: EditingNote,
-                            deleteEntry: { type: 'workout'; workoutId: string } | { type: 'segment'; segmentId: string },
+                            deleteEntry: DeletingNote,
                           ) => athleteId ? (
                             <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
                               <Button
@@ -415,7 +423,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                 size="icon-xs"
                                 title="Usuń notatkę"
                                 className="text-red-500 hover:bg-red-50 hover:text-red-600"
-                                onClick={() => handleDeleteNote(deleteEntry)}
+                                onClick={() => setDeletingNote(deleteEntry)}
                               >
                                 <Trash2 />
                               </Button>
@@ -433,6 +441,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                     { type: 'workout', workoutId: workout.id, current: workout.notes },
                                     { type: 'workout', workoutId: workout.id },
                                   )}
+
                                 </div>
                               )}
                               {segNotes.map((seg) => (
@@ -447,7 +456,7 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
                                   </div>
                                   {noteButtons(
                                     { type: 'segment', segmentId: seg.id, label: SEGMENT_TYPE_LABELS[seg.segmentType], current: seg.notes! },
-                                    { type: 'segment', segmentId: seg.id },
+                                    { type: 'segment', segmentId: seg.id, label: SEGMENT_TYPE_LABELS[seg.segmentType] },
                                   )}
                                 </div>
                               ))}
@@ -486,6 +495,43 @@ export function MonthlyTrainingTable({ workouts, athleteId }: Props) {
             </Button>
             <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
               {isDeleting ? 'Usuwanie…' : 'Usuń'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete note confirmation */}
+      <Dialog
+        open={deletingNote !== null}
+        onOpenChange={(open) => !open && setDeletingNote(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Usuń notatkę</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Czy na pewno chcesz usunąć{' '}
+            {deletingNote?.type === 'segment' ? (
+              <>notatkę odcinka <span className="font-medium text-foreground">{deletingNote.label}</span></>
+            ) : (
+              'ogólne notatki treningu'
+            )}
+            ? Tej operacji nie można cofnąć.
+          </p>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeletingNote(null)}
+              disabled={isDeletingNote}
+            >
+              Anuluj
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDeleteNote}
+              disabled={isDeletingNote}
+            >
+              {isDeletingNote ? 'Usuwanie…' : 'Usuń'}
             </Button>
           </DialogFooter>
         </DialogContent>
